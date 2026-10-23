@@ -17,18 +17,25 @@ import (
 )
 
 type settingsPageData struct {
-	Title              string
-	CSRF               string
-	Error              string
-	Success            string
-	Settings           store.NotificationSettings
-	DefaultRules       string
-	ImportantRules     string
-	EmailConfigured    bool
-	TelegramConfigured bool
-	BotUsername        string
-	BindingURL         string
-	BindingExpiresAt   string
+	Title               string
+	CSRF                string
+	Error               string
+	Success             string
+	Settings            store.NotificationSettings
+	SMTPHost            string
+	SMTPPort            int
+	SMTPUsername        string
+	SMTPFrom            string
+	SMTPEncryption      string
+	SMTPPasswordSaved   bool
+	TelegramBotUsername string
+	DefaultRules        string
+	ImportantRules      string
+	EmailConfigured     bool
+	TelegramConfigured  bool
+	BotUsername         string
+	BindingURL          string
+	BindingExpiresAt    string
 }
 
 type notificationLogRow struct {
@@ -55,7 +62,12 @@ func (s *Server) notificationSettings(w http.ResponseWriter, r *http.Request) {
 		s.serverError(w, r, err)
 		return
 	}
-	data := s.settingsData(r, settings, rules)
+	integrations, err := s.store.GetIntegrationSettings(r.Context())
+	if err != nil {
+		s.serverError(w, r, err)
+		return
+	}
+	data := s.settingsData(r, settings, rules, integrations)
 	switch r.URL.Query().Get("saved") {
 	case "1":
 		data.Success = "提醒设置已保存。"
@@ -71,6 +83,11 @@ func (s *Server) saveNotificationSettings(w http.ResponseWriter, r *http.Request
 		s.serverError(w, r, err)
 		return
 	}
+	currentIntegrations, err := s.store.GetIntegrationSettings(r.Context())
+	if err != nil {
+		s.serverError(w, r, err)
+		return
+	}
 	settings := store.NotificationSettings{
 		Email:           strings.TrimSpace(r.FormValue("email")),
 		EmailEnabled:    r.FormValue("email_enabled") == "on",
@@ -79,26 +96,49 @@ func (s *Server) saveNotificationSettings(w http.ResponseWriter, r *http.Request
 		Timezone:        strings.TrimSpace(r.FormValue("timezone")),
 		DeliveryTime:    strings.TrimSpace(r.FormValue("delivery_time")),
 	}
+	integrations := store.IntegrationSettings{
+		SMTPHost:            strings.TrimSpace(r.FormValue("smtp_host")),
+		SMTPUsername:        strings.TrimSpace(r.FormValue("smtp_username")),
+		SMTPFrom:            strings.TrimSpace(r.FormValue("smtp_from")),
+		SMTPEncryption:      strings.TrimSpace(r.FormValue("smtp_encryption")),
+		TelegramBotUsername: strings.TrimPrefix(strings.TrimSpace(r.FormValue("telegram_bot_username")), "@"),
+	}
+	port, portErr := strconv.Atoi(strings.TrimSpace(r.FormValue("smtp_port")))
+	if portErr != nil {
+		port = 0
+	}
+	integrations.SMTPPort = port
+	integrations.SMTPPassword = r.FormValue("smtp_password")
+	if r.FormValue("clear_smtp_password") != "on" && integrations.SMTPPassword == "" {
+		integrations.SMTPPassword = currentIntegrations.SMTPPassword
+	}
+	integrations.TelegramBotToken = strings.TrimSpace(r.FormValue("telegram_bot_token"))
+	if r.FormValue("clear_telegram_bot_token") != "on" && integrations.TelegramBotToken == "" {
+		integrations.TelegramBotToken = currentIntegrations.TelegramBotToken
+	}
 	rules, err := parseReminderRules(r.FormValue("default_rules"), r.FormValue("important_rules"))
 	if err == nil {
-		err = validateNotificationSettings(settings, s.cfg.TelegramBotToken != "")
+		err = validateIntegrationSettings(integrations)
+	}
+	if err == nil {
+		err = validateNotificationSettings(settings, smtpConfigured(integrations), integrations.TelegramBotToken != "")
 	}
 	if err != nil {
-		data := s.settingsData(r, settings, rules)
+		data := s.settingsData(r, settings, rules, integrations)
 		data.DefaultRules = r.FormValue("default_rules")
 		data.ImportantRules = r.FormValue("important_rules")
 		data.Error = err.Error()
 		s.renderSettings(w, data, 422)
 		return
 	}
-	if err := s.store.SaveNotificationSettings(r.Context(), settings, rules); err != nil {
+	if err := s.store.SaveNotificationConfiguration(r.Context(), settings, rules, integrations); err != nil {
 		s.serverError(w, r, err)
 		return
 	}
 	httpRedirect(w, r, "/settings?saved=1")
 }
 
-func validateNotificationSettings(settings store.NotificationSettings, telegramConfigured bool) error {
+func validateNotificationSettings(settings store.NotificationSettings, emailConfigured, telegramConfigured bool) error {
 	if settings.Email != "" {
 		parsed, err := mail.ParseAddress(settings.Email)
 		if err != nil || parsed.Address != settings.Email {
@@ -108,11 +148,14 @@ func validateNotificationSettings(settings store.NotificationSettings, telegramC
 	if settings.EmailEnabled && settings.Email == "" {
 		return fmt.Errorf("启用邮件通知前请填写通知邮箱。")
 	}
+	if settings.EmailEnabled && !emailConfigured {
+		return fmt.Errorf("启用邮件通知前请先填写完整的 SMTP 配置。")
+	}
 	if settings.TelegramEnabled && (settings.TelegramChatID == "" || strings.TrimSpace(settings.TelegramChatID) == "") {
 		return fmt.Errorf("启用 Telegram 通知前请先绑定 Telegram 账号。")
 	}
 	if settings.TelegramEnabled && !telegramConfigured {
-		return fmt.Errorf("请先在环境变量中配置 TELEGRAM_BOT_TOKEN。")
+		return fmt.Errorf("请先填写 Telegram Bot Token。")
 	}
 	if _, err := time.LoadLocation(settings.Timezone); err != nil {
 		return fmt.Errorf("时区无效，请填写 IANA 时区，例如 Asia/Shanghai。")
@@ -121,6 +164,35 @@ func validateNotificationSettings(settings store.NotificationSettings, telegramC
 		return fmt.Errorf("发送时间无效，请使用 24 小时制 HH:MM。")
 	}
 	return nil
+}
+
+func validateIntegrationSettings(settings store.IntegrationSettings) error {
+	if settings.SMTPPort < 1 || settings.SMTPPort > 65535 {
+		return fmt.Errorf("SMTP 端口必须在 1 到 65535 之间。")
+	}
+	if settings.SMTPEncryption != "starttls" && settings.SMTPEncryption != "tls" && settings.SMTPEncryption != "none" {
+		return fmt.Errorf("SMTP 加密方式无效。")
+	}
+	if (settings.SMTPUsername == "") != (settings.SMTPPassword == "") {
+		return fmt.Errorf("SMTP 用户名和密码需要同时填写；如需无认证发送，请同时清空用户名和密码。")
+	}
+	if settings.SMTPUsername != "" && settings.SMTPEncryption == "none" {
+		return fmt.Errorf("SMTP 使用账号密码认证时必须启用 TLS。")
+	}
+	configured := settings.SMTPHost != "" || settings.SMTPFrom != "" || settings.SMTPUsername != "" || settings.SMTPPassword != ""
+	if configured {
+		if settings.SMTPHost == "" || settings.SMTPFrom == "" {
+			return fmt.Errorf("SMTP Host 和发件人地址必须同时填写。")
+		}
+		if _, err := mail.ParseAddress(settings.SMTPFrom); err != nil {
+			return fmt.Errorf("SMTP 发件人地址无效。")
+		}
+	}
+	return nil
+}
+
+func smtpConfigured(settings store.IntegrationSettings) bool {
+	return strings.TrimSpace(settings.SMTPHost) != "" && settings.SMTPPort > 0 && strings.TrimSpace(settings.SMTPFrom) != ""
 }
 
 func parseReminderRules(defaultValue, importantValue string) (store.ReminderRules, error) {
@@ -163,19 +235,24 @@ func (s *Server) createTelegramBinding(w http.ResponseWriter, r *http.Request) {
 		s.serverError(w, r, err)
 		return
 	}
-	data := s.settingsData(r, settings, rules)
-	if s.cfg.TelegramBotToken == "" {
-		data.Error = "请先在 .env 中配置 TELEGRAM_BOT_TOKEN，并重启应用和 Worker。"
+	integrations, err := s.store.GetIntegrationSettings(r.Context())
+	if err != nil {
+		s.serverError(w, r, err)
+		return
+	}
+	data := s.settingsData(r, settings, rules, integrations)
+	if integrations.TelegramBotToken == "" {
+		data.Error = "请先填写 Telegram Bot Token 并保存设置。"
 		s.renderSettings(w, data, 422)
 		return
 	}
-	username := s.cfg.TelegramBotUsername
+	username := integrations.TelegramBotUsername
 	if username == "" {
 		ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
-		username, err = notify.NewTelegramBot(s.cfg.TelegramBotToken).GetMe(ctx)
+		username, err = notify.NewTelegramBot(integrations.TelegramBotToken).GetMe(ctx)
 		cancel()
 		if err != nil {
-			data.Error = "无法读取 Telegram Bot 信息，请检查 TELEGRAM_BOT_TOKEN。"
+			data.Error = "无法读取 Telegram Bot 信息，请检查提醒设置中保存的 Bot Token。"
 			s.renderSettings(w, data, 502)
 			return
 		}
@@ -211,9 +288,14 @@ func (s *Server) testEmailNotification(w http.ResponseWriter, r *http.Request) {
 		s.serverError(w, r, err)
 		return
 	}
+	integrations, err := s.store.GetIntegrationSettings(r.Context())
+	if err != nil {
+		s.serverError(w, r, err)
+		return
+	}
 	attempted := time.Now()
 	ctx, cancel := context.WithTimeout(r.Context(), 25*time.Second)
-	err = notify.SendReminderEmail(ctx, s.smtpConfig(), settings.Email, notify.Reminder{
+	err = notify.SendReminderEmail(ctx, smtpConfig(integrations), settings.Email, notify.Reminder{
 		Name: "SubTrack 通知测试", ExpiresAt: attempted.AddDate(0, 0, 7),
 		DaysRemaining: 7, RenewalPrice: "测试消息", PublicURL: s.cfg.PublicURL,
 	})
@@ -227,13 +309,18 @@ func (s *Server) testTelegramNotification(w http.ResponseWriter, r *http.Request
 		s.serverError(w, r, err)
 		return
 	}
+	integrations, err := s.store.GetIntegrationSettings(r.Context())
+	if err != nil {
+		s.serverError(w, r, err)
+		return
+	}
 	attempted := time.Now()
 	var sendErr error
-	if s.cfg.TelegramBotToken == "" || settings.TelegramChatID == "" {
+	if integrations.TelegramBotToken == "" || settings.TelegramChatID == "" {
 		sendErr = fmt.Errorf("Telegram 未配置或尚未绑定")
 	} else {
 		ctx, cancel := context.WithTimeout(r.Context(), 25*time.Second)
-		sendErr = notify.NewTelegramBot(s.cfg.TelegramBotToken).SendTest(ctx, settings.TelegramChatID)
+		sendErr = notify.NewTelegramBot(integrations.TelegramBotToken).SendTest(ctx, settings.TelegramChatID)
 		cancel()
 	}
 	s.recordTest(w, r, "telegram", attempted, sendErr)
@@ -320,12 +407,15 @@ func (s *Server) retryNotification(w http.ResponseWriter, r *http.Request) {
 	httpRedirect(w, r, "/notifications?retried=1")
 }
 
-func (s *Server) settingsData(r *http.Request, settings store.NotificationSettings, rules store.ReminderRules) settingsPageData {
+func (s *Server) settingsData(r *http.Request, settings store.NotificationSettings, rules store.ReminderRules, integrations store.IntegrationSettings) settingsPageData {
 	return settingsPageData{
 		Title: "提醒设置", CSRF: sessionFromContext(r.Context()).CSRF,
 		Settings: settings, DefaultRules: joinOffsets(rules.Default), ImportantRules: joinOffsets(rules.Important),
-		EmailConfigured: s.smtpConfig().Configured(), TelegramConfigured: s.cfg.TelegramBotToken != "",
-		BotUsername: s.cfg.TelegramBotUsername,
+		SMTPHost: integrations.SMTPHost, SMTPPort: integrations.SMTPPort,
+		SMTPUsername: integrations.SMTPUsername, SMTPFrom: integrations.SMTPFrom,
+		SMTPEncryption: integrations.SMTPEncryption, SMTPPasswordSaved: integrations.SMTPPassword != "",
+		EmailConfigured: smtpConfigured(integrations), TelegramConfigured: integrations.TelegramBotToken != "",
+		TelegramBotUsername: integrations.TelegramBotUsername,
 	}
 }
 
@@ -350,10 +440,10 @@ func (s *Server) renderSettings(w http.ResponseWriter, data settingsPageData, st
 	}
 }
 
-func (s *Server) smtpConfig() notify.SMTPConfig {
+func smtpConfig(integrations store.IntegrationSettings) notify.SMTPConfig {
 	return notify.SMTPConfig{
-		Host: s.cfg.SMTPHost, Port: s.cfg.SMTPPort, Username: s.cfg.SMTPUsername,
-		Password: s.cfg.SMTPPassword, From: s.cfg.SMTPFrom, Encryption: s.cfg.SMTPEncryption,
+		Host: integrations.SMTPHost, Port: integrations.SMTPPort, Username: integrations.SMTPUsername,
+		Password: integrations.SMTPPassword, From: integrations.SMTPFrom, Encryption: integrations.SMTPEncryption,
 	}
 }
 

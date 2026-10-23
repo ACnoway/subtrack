@@ -83,21 +83,24 @@ tbody tr:hover { background: #fcfdff; }
 .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 20px; }
 .form-grid textarea { resize: vertical; }
 .span-2 { grid-column: span 2; }
-.checkbox-field { display: flex !important; align-items: flex-start; gap: 10px !important; padding: 13px; border-radius: 8px; background: #f7f9fc; }
+.checkbox-field { display: flex !important; align-items: center; min-width: 0; gap: 10px !important; padding: 13px; border-radius: 8px; background: #f7f9fc; }
 .checkbox-field input { width: 16px; min-height: 16px; margin: 1px 0 0; accent-color: var(--blue); }
-.checkbox-field span { display: grid; gap: 4px; }
+.checkbox-field span { display: grid; min-width: 0; gap: 4px; line-height: 1.45; }
 .checkbox-field small { color: #8692a5; font-size: 11px; font-weight: 400; }
 .form-footer { display: flex; justify-content: flex-end; gap: 9px; padding-top: 22px; margin-top: 24px; border-top: 1px solid var(--line); }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 .settings-card { padding: 26px; }
 .settings-section + .settings-section { padding-top: 23px; margin-top: 23px; border-top: 1px solid var(--line); }
+.settings-section .form-grid { align-items: start; }
+.settings-section .form-grid > label { min-width: 0; }
 .settings-section h2, .action-card h2 { margin: 0 0 7px; color: #2b3850; font-size: 16px; }
 .settings-section > .muted, .action-card > .muted { margin: 0 0 16px; line-height: 1.6; }
 .form-grid small { color: #8692a5; font-size: 11px; font-weight: 400; line-height: 1.5; }
 .settings-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 16px; }
-.action-card { padding: 22px; }
+.action-card { display: flex; flex-direction: column; min-width: 0; padding: 22px; }
 .action-card form { margin: 0; }
-.action-row { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; }
+.action-card > form:last-child, .action-row { margin-top: auto; }
+.action-row { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; padding-top: 12px; }
 .button-danger { color: #a6423f; border-color: #f1d1cf; background: #fff8f7; }
 .button-danger:hover { background: #fff0ef; }
 .log-result { display: inline-block; padding: 5px 8px; border-radius: 20px; font-size: 10px; font-weight: 600; color: #6e7788; background: #eef0f4; }

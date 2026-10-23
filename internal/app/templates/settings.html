@@ -48,7 +48,40 @@
       </label>
       <label class="checkbox-field span-2">
         <input type="checkbox" name="email_enabled" {{if .Settings.EmailEnabled}}checked{{end}}>
-        <span><strong>启用 Email 提醒</strong><small>SMTP 配置：{{if .EmailConfigured}}已配置{{else}}未完整配置，请在 .env 中设置 SMTP_HOST、SMTP_PORT 和 SMTP_FROM{{end}}</small></span>
+        <span><strong>启用 Email 提醒</strong><small>SMTP 配置：{{if .EmailConfigured}}已配置{{else}}尚未完整配置，请填写下方 SMTP 参数{{end}}</small></span>
+      </label>
+    </div>
+  </div>
+
+  <div class="settings-section">
+    <h2>SMTP 服务器</h2>
+    <p class="muted">配置保存在数据库中。密码加密存储；密码输入框留空会保留当前密码。</p>
+    <div class="form-grid">
+      <label>SMTP Host
+        <input name="smtp_host" value="{{.SMTPHost}}" placeholder="smtp.example.com" autocomplete="off">
+      </label>
+      <label>SMTP Port
+        <input type="number" name="smtp_port" value="{{.SMTPPort}}" min="1" max="65535" required inputmode="numeric">
+      </label>
+      <label>SMTP 用户名
+        <input name="smtp_username" value="{{.SMTPUsername}}" autocomplete="username">
+      </label>
+      <label>SMTP 密码
+        <input type="password" name="smtp_password" value="" placeholder="{{if .SMTPPasswordSaved}}已保存，留空以保留{{else}}SMTP 密码{{end}}" autocomplete="new-password">
+      </label>
+      <label>发件人地址
+        <input name="smtp_from" value="{{.SMTPFrom}}" placeholder="SubTrack &lt;notify@example.com&gt;" autocomplete="email">
+      </label>
+      <label>SMTP 加密
+        <select name="smtp_encryption">
+          <option value="starttls" {{if eq .SMTPEncryption "starttls"}}selected{{end}}>STARTTLS（推荐）</option>
+          <option value="tls" {{if eq .SMTPEncryption "tls"}}selected{{end}}>TLS</option>
+          <option value="none" {{if eq .SMTPEncryption "none"}}selected{{end}}>无加密</option>
+        </select>
+      </label>
+      <label class="checkbox-field span-2">
+        <input type="checkbox" name="clear_smtp_password">
+        <span><strong>清除已保存的 SMTP 密码</strong><small>清除密码时也要清空 SMTP 用户名，或填写新的密码。</small></span>
       </label>
     </div>
   </div>
@@ -58,9 +91,20 @@
     {{if .Settings.TelegramChatID}}
     <p class="muted">已绑定 Telegram 账号（Chat ID：{{.Settings.TelegramChatID}}）。</p>
     {{else}}
-    <p class="muted">{{if .TelegramConfigured}}Bot Token 已配置，生成一次性链接后向机器人发送 /start 即可绑定。{{else}}请先在 .env 中设置 TELEGRAM_BOT_TOKEN，再重启应用和 Worker。{{end}}</p>
+    <p class="muted">{{if .TelegramConfigured}}Bot Token 已保存在数据库；生成一次性链接后向机器人发送 /start 即可绑定。{{else}}填写下方 Bot Token 并保存后即可生成绑定链接。{{end}}</p>
     {{end}}
     <div class="form-grid">
+      <label>Bot Token
+        <input type="password" name="telegram_bot_token" value="" placeholder="{{if .TelegramConfigured}}已保存，留空以保留{{else}}从 BotFather 获取{{end}}" autocomplete="new-password">
+      </label>
+      <label>Bot 用户名（可选）
+        <input name="telegram_bot_username" value="{{.TelegramBotUsername}}" placeholder="SubTrackBot，不需要 @" autocomplete="off">
+        <small>留空时生成绑定链接会从 Telegram 自动读取。</small>
+      </label>
+      <label class="checkbox-field span-2">
+        <input type="checkbox" name="clear_telegram_bot_token">
+        <span><strong>清除已保存的 Bot Token</strong><small>清除后将无法绑定或发送 Telegram 消息。</small></span>
+      </label>
       <label class="checkbox-field span-2">
         <input type="checkbox" name="telegram_enabled" {{if .Settings.TelegramEnabled}}checked{{end}}>
         <span><strong>启用 Telegram 提醒</strong><small>绑定后，Worker 会通过 Bot API 轮询完成绑定并发送通知。</small></span>

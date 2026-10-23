@@ -24,11 +24,10 @@ type Worker struct {
 	store  *store.Store
 	cfg    app.Config
 	logger *slog.Logger
-	bot    *notify.TelegramBot
 }
 
 func New(database *store.Store, cfg app.Config, logger *slog.Logger) *Worker {
-	return &Worker{store: database, cfg: cfg, logger: logger, bot: notify.NewTelegramBot(cfg.TelegramBotToken)}
+	return &Worker{store: database, cfg: cfg, logger: logger}
 }
 
 func (w *Worker) Run(ctx context.Context) error {
@@ -36,9 +35,7 @@ func (w *Worker) Run(ctx context.Context) error {
 		return err
 	}
 	go w.heartbeatLoop(ctx)
-	if w.bot.Configured() {
-		go w.pollTelegramUpdates(ctx)
-	}
+	go w.pollTelegramUpdates(ctx)
 	if err := w.processCycle(ctx); err != nil {
 		w.logger.Error("notification worker cycle failed", "error", err)
 	}
@@ -82,6 +79,10 @@ func (w *Worker) processCycle(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	integrations, err := w.store.GetIntegrationSettings(ctx)
+	if err != nil {
+		return err
+	}
 	zone, err := time.LoadLocation(settings.Timezone)
 	if err != nil {
 		return fmt.Errorf("load notification timezone: %w", err)
@@ -89,10 +90,10 @@ func (w *Worker) processCycle(ctx context.Context) error {
 	now := time.Now().In(zone)
 	today := dateAt(now, zone)
 	deliverySettings := settings
-	if !w.smtpConfig().Configured() {
+	if !smtpConfig(integrations).Configured() {
 		deliverySettings.EmailEnabled = false
 	}
-	if !w.bot.Configured() {
+	if strings.TrimSpace(integrations.TelegramBotToken) == "" {
 		deliverySettings.TelegramEnabled = false
 	}
 	if err := w.store.CancelObsoleteReminderJobs(ctx, deliverySettings); err != nil {
@@ -113,7 +114,7 @@ func (w *Worker) processCycle(ctx context.Context) error {
 			return nil
 		}
 		sendCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
-		sendErr := w.send(sendCtx, settings, *job)
+		sendErr := w.send(sendCtx, settings, integrations, *job)
 		cancel()
 		finishCtx, finishCancel := context.WithTimeout(context.Background(), 5*time.Second)
 		finishErr := w.store.FinishNotificationJob(finishCtx, *job, sendErr, time.Now())
@@ -194,13 +195,13 @@ func planReminderJobs(items []store.ReminderSubscription, rules store.ReminderRu
 	return planned
 }
 
-func (w *Worker) send(ctx context.Context, settings store.NotificationSettings, job store.NotificationJob) error {
+func (w *Worker) send(ctx context.Context, settings store.NotificationSettings, integrations store.IntegrationSettings, job store.NotificationJob) error {
 	message := makeReminder(job.Message, job.ReminderOffset, w.cfg.PublicURL)
 	switch job.Channel {
 	case "email":
-		return notify.SendReminderEmail(ctx, w.smtpConfig(), settings.Email, message)
+		return notify.SendReminderEmail(ctx, smtpConfig(integrations), settings.Email, message)
 	case "telegram":
-		return w.bot.SendReminder(ctx, settings.TelegramChatID, message)
+		return notify.NewTelegramBot(integrations.TelegramBotToken).SendReminder(ctx, settings.TelegramChatID, message)
 	default:
 		return fmt.Errorf("unknown notification channel")
 	}
@@ -218,10 +219,10 @@ func makeReminder(item store.ReminderSubscription, daysRemaining int, publicURL 
 	}
 }
 
-func (w *Worker) smtpConfig() notify.SMTPConfig {
+func smtpConfig(integrations store.IntegrationSettings) notify.SMTPConfig {
 	return notify.SMTPConfig{
-		Host: w.cfg.SMTPHost, Port: w.cfg.SMTPPort, Username: w.cfg.SMTPUsername,
-		Password: w.cfg.SMTPPassword, From: w.cfg.SMTPFrom, Encryption: w.cfg.SMTPEncryption,
+		Host: integrations.SMTPHost, Port: integrations.SMTPPort, Username: integrations.SMTPUsername,
+		Password: integrations.SMTPPassword, From: integrations.SMTPFrom, Encryption: integrations.SMTPEncryption,
 	}
 }
 
@@ -232,6 +233,21 @@ func dateAt(value time.Time, zone *time.Location) time.Time {
 
 func (w *Worker) pollTelegramUpdates(ctx context.Context) {
 	for ctx.Err() == nil {
+		integrations, err := w.store.GetIntegrationSettings(ctx)
+		if err != nil {
+			w.logger.Error("read Telegram integration settings failed", "error", err)
+			if !pause(ctx, 3*time.Second) {
+				return
+			}
+			continue
+		}
+		if strings.TrimSpace(integrations.TelegramBotToken) == "" {
+			if !pause(ctx, 5*time.Second) {
+				return
+			}
+			continue
+		}
+		bot := notify.NewTelegramBot(integrations.TelegramBotToken)
 		offset, err := w.store.TelegramUpdateOffset(ctx)
 		if err != nil {
 			w.logger.Error("read Telegram update offset failed", "error", err)
@@ -240,7 +256,7 @@ func (w *Worker) pollTelegramUpdates(ctx context.Context) {
 			}
 			continue
 		}
-		updates, err := w.bot.GetUpdates(ctx, offset)
+		updates, err := bot.GetUpdates(ctx, offset)
 		if err != nil {
 			if ctx.Err() != nil {
 				return
@@ -252,7 +268,7 @@ func (w *Worker) pollTelegramUpdates(ctx context.Context) {
 			continue
 		}
 		for _, update := range updates {
-			w.processTelegramUpdate(ctx, update)
+			w.processTelegramUpdate(ctx, bot, update)
 			if err := w.store.SaveTelegramUpdateOffset(ctx, update.UpdateID+1); err != nil {
 				w.logger.Error("save Telegram update offset failed", "error", err)
 				break
@@ -261,7 +277,7 @@ func (w *Worker) pollTelegramUpdates(ctx context.Context) {
 	}
 }
 
-func (w *Worker) processTelegramUpdate(ctx context.Context, update notify.TelegramUpdate) {
+func (w *Worker) processTelegramUpdate(ctx context.Context, bot *notify.TelegramBot, update notify.TelegramUpdate) {
 	if update.Message == nil || update.Message.Chat.ID <= 0 {
 		return
 	}
@@ -279,7 +295,7 @@ func (w *Worker) processTelegramUpdate(ctx context.Context, update notify.Telegr
 		w.logger.Error("complete Telegram binding failed", "error", err)
 		return
 	}
-	if err := w.bot.ReplyBinding(ctx, chatID, bound); err != nil {
+	if err := bot.ReplyBinding(ctx, chatID, bound); err != nil {
 		w.logger.Warn("send Telegram binding reply failed", "error", err)
 	}
 }

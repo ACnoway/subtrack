@@ -25,12 +25,17 @@ func main() {
 		os.Exit(1)
 	}
 
-	db, err := store.Open(context.Background(), cfg.DatabaseURL)
+	db, err := store.Open(context.Background(), cfg.DatabaseURL, cfg.SessionSecret)
 	if err != nil {
 		logger.Error("database initialization failed", "error", err)
 		os.Exit(1)
 	}
 	defer db.Close()
+	if err := db.EnsureIntegrationSettings(context.Background(), cfg.LegacyIntegrations); err != nil {
+		logger.Error("notification integration settings initialization failed", "error", err)
+		os.Exit(1)
+	}
+	cfg.LegacyIntegrations = store.IntegrationSettings{}
 	if len(os.Args) > 1 && os.Args[1] == "worker" {
 		logger.Info("SubTrack notification worker starting")
 		if err := worker.RunProcess(db, cfg, logger); err != nil {

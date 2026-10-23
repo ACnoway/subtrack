@@ -59,40 +59,6 @@ func (s *Store) GetNotificationSettings(ctx context.Context) (NotificationSettin
 	return settings, rules, nil
 }
 
-func (s *Store) SaveNotificationSettings(ctx context.Context, settings NotificationSettings, rules ReminderRules) error {
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("begin notification settings update: %w", err)
-	}
-	defer tx.Rollback()
-	if _, err := tx.ExecContext(ctx, `
-		UPDATE notification_settings
-		SET email=$1, email_enabled=$2, telegram_enabled=$3, timezone=$4,
-		    delivery_time=$5::time, updated_at=now()
-		WHERE id=1`, strings.TrimSpace(settings.Email), settings.EmailEnabled,
-		settings.TelegramEnabled, settings.Timezone, settings.DeliveryTime); err != nil {
-		return fmt.Errorf("save notification settings: %w", err)
-	}
-	if _, err := tx.ExecContext(ctx, `DELETE FROM reminder_rules`); err != nil {
-		return fmt.Errorf("replace reminder rules: %w", err)
-	}
-	insertRule := `INSERT INTO reminder_rules (scope, days_before) VALUES ($1,$2)`
-	for _, days := range rules.Default {
-		if _, err := tx.ExecContext(ctx, insertRule, "default", days); err != nil {
-			return fmt.Errorf("save default reminder rule: %w", err)
-		}
-	}
-	for _, days := range rules.Important {
-		if _, err := tx.ExecContext(ctx, insertRule, "important", days); err != nil {
-			return fmt.Errorf("save important reminder rule: %w", err)
-		}
-	}
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit notification settings: %w", err)
-	}
-	return nil
-}
-
 func (s *Store) CreateTelegramBinding(ctx context.Context, token string, expiresAt time.Time) error {
 	hash := tokenHash(token)
 	_, err := s.db.ExecContext(ctx, `

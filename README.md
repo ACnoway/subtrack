@@ -16,6 +16,7 @@ SubTrack 是一个自托管的订阅与数字资产管理平台，用于集中�
 - 导出或导入包含资产、归档状态及续费历史的 JSON 备份；导入为新增操作并整体事务提交。
 - PostgreSQL 持久化和启动时自动执行的版本化 SQL 迁移。
 - Email SMTP 通知、Telegram Bot 一次性链接绑定、通知测试及发送历史。
+- 在网页提醒设置中管理 SMTP 与 Telegram Bot 配置；凭据保存在 PostgreSQL，SMTP 密码和 Bot Token 使用 `SESSION_SECRET` 派生密钥加密。
 - 可配置提醒天数、重要资产额外提醒、发送时区和每日发送时间。
 - 独立 Go Worker 提前生成持久化任务，按渠道去重并对失败发送进行指数退避重试；已发送任务不会重复发送。
 - Docker Compose 分别运行 Web、Worker 和 PostgreSQL，数据库数据保存在命名卷中。
@@ -38,7 +39,7 @@ openssl rand -base64 48
 
 请将输出填入 `SESSION_SECRET`。`DATABASE_URL` 中的数据库用户名和密码须与 `POSTGRES_USER`、`POSTGRES_PASSWORD` 一致；若密码含 URL 特殊字符，请对连接串中的用户名和密码进行百分号编码。`.env` 已被 Git 忽略，不要提交真实密钥。
 
-要使用 Email 通知，请配置 `SMTP_HOST`、`SMTP_PORT`、`SMTP_FROM`，并按邮件服务要求设置 `SMTP_USERNAME`、`SMTP_PASSWORD` 和 `SMTP_ENCRYPTION`（`starttls`、`tls` 或 `none`）。要使用 Telegram，请通过 BotFather 创建机器人并配置 `TELEGRAM_BOT_TOKEN`；`TELEGRAM_BOT_USERNAME` 可选，留空时页面会从 Bot API 获取。通知邮箱、提醒时区和规则在网页的“提醒设置”中配置。
+Email 的 SMTP Host、端口、用户名、密码、发件人和加密方式，以及 Telegram Bot Token 和用户名，都在网页“提醒设置”页面配置并保存到 PostgreSQL。SMTP 密码和 Bot Token 在数据库中加密保存；请妥善保管并备份 `.env` 中的 `SESSION_SECRET`，更换它会导致已保存的通知凭据无法解密。现有部署若在 `.env` 中配置过 SMTP 或 Telegram，升级后首次启动会将这些值导入数据库一次，之后可以从 `.env` 删除旧的 `SMTP_*` 和 `TELEGRAM_BOT_*` 配置。通知邮箱、提醒时区和规则也在同一页面配置。
 
 ### 本地开发
 

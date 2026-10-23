@@ -111,6 +111,10 @@ func TestPhaseThreeTemplatesRender(t *testing.T) {
 		}},
 		{page: "renewals.html", data: renewalsData{Title: "续费历史"}},
 		{page: "data.html", data: dataPageData{Title: "数据备份"}},
+		{page: "settings.html", data: settingsPageData{
+			Title: "提醒设置", CSRF: "token", SMTPPort: 587, SMTPEncryption: "starttls",
+			Settings: store.NotificationSettings{Timezone: "UTC", DeliveryTime: "09:00"},
+		}},
 	}
 	for _, test := range tests {
 		t.Run(test.page, func(t *testing.T) {

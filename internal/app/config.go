@@ -6,24 +6,19 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/ACnoway/subtrack/internal/store"
 )
 
 type Config struct {
-	ListenAddress       string
-	DatabaseURL         string
-	AdminUsername       string
-	AdminPassword       string
-	SessionSecret       []byte
-	CookieSecure        bool
-	SMTPHost            string
-	SMTPPort            int
-	SMTPUsername        string
-	SMTPPassword        string
-	SMTPFrom            string
-	SMTPEncryption      string
-	TelegramBotToken    string
-	TelegramBotUsername string
-	PublicURL           string
+	ListenAddress      string
+	DatabaseURL        string
+	AdminUsername      string
+	AdminPassword      string
+	SessionSecret      []byte
+	CookieSecure       bool
+	LegacyIntegrations store.IntegrationSettings
+	PublicURL          string
 }
 
 func LoadConfig() (Config, error) {
@@ -32,30 +27,29 @@ func LoadConfig() (Config, error) {
 		return Config{}, fmt.Errorf("SESSION_SECRET must contain at least 32 characters")
 	}
 	cfg := Config{
-		ListenAddress:       envOr("LISTEN_ADDRESS", ":8080"),
-		DatabaseURL:         os.Getenv("DATABASE_URL"),
-		AdminUsername:       envOr("ADMIN_USERNAME", "admin"),
-		AdminPassword:       os.Getenv("ADMIN_PASSWORD"),
-		SessionSecret:       []byte(secret),
-		SMTPHost:            os.Getenv("SMTP_HOST"),
-		SMTPUsername:        os.Getenv("SMTP_USERNAME"),
-		SMTPPassword:        os.Getenv("SMTP_PASSWORD"),
-		SMTPFrom:            os.Getenv("SMTP_FROM"),
-		SMTPEncryption:      envOr("SMTP_ENCRYPTION", "starttls"),
-		TelegramBotToken:    os.Getenv("TELEGRAM_BOT_TOKEN"),
-		TelegramBotUsername: strings.TrimPrefix(os.Getenv("TELEGRAM_BOT_USERNAME"), "@"),
-		PublicURL:           strings.TrimRight(os.Getenv("APP_PUBLIC_URL"), "/"),
+		ListenAddress: envOr("LISTEN_ADDRESS", ":8080"),
+		DatabaseURL:   os.Getenv("DATABASE_URL"),
+		AdminUsername: envOr("ADMIN_USERNAME", "admin"),
+		AdminPassword: os.Getenv("ADMIN_PASSWORD"),
+		SessionSecret: []byte(secret),
+		LegacyIntegrations: store.IntegrationSettings{
+			SMTPHost:            os.Getenv("SMTP_HOST"),
+			SMTPUsername:        os.Getenv("SMTP_USERNAME"),
+			SMTPPassword:        os.Getenv("SMTP_PASSWORD"),
+			SMTPFrom:            os.Getenv("SMTP_FROM"),
+			SMTPEncryption:      envOr("SMTP_ENCRYPTION", "starttls"),
+			TelegramBotToken:    os.Getenv("TELEGRAM_BOT_TOKEN"),
+			TelegramBotUsername: strings.TrimPrefix(os.Getenv("TELEGRAM_BOT_USERNAME"), "@"),
+		},
+		PublicURL: strings.TrimRight(os.Getenv("APP_PUBLIC_URL"), "/"),
 	}
-	port, err := strconv.Atoi(envOr("SMTP_PORT", "587"))
-	if err != nil || port < 1 || port > 65535 {
-		return Config{}, fmt.Errorf("SMTP_PORT must be between 1 and 65535")
+	port := 587
+	if legacyPort, err := strconv.Atoi(os.Getenv("SMTP_PORT")); err == nil && legacyPort >= 1 && legacyPort <= 65535 {
+		port = legacyPort
 	}
-	cfg.SMTPPort = port
-	if cfg.SMTPEncryption != "starttls" && cfg.SMTPEncryption != "tls" && cfg.SMTPEncryption != "none" {
-		return Config{}, fmt.Errorf("SMTP_ENCRYPTION must be starttls, tls, or none")
-	}
-	if (cfg.SMTPUsername == "") != (cfg.SMTPPassword == "") {
-		return Config{}, fmt.Errorf("SMTP_USERNAME and SMTP_PASSWORD must be configured together")
+	cfg.LegacyIntegrations.SMTPPort = port
+	if cfg.LegacyIntegrations.SMTPEncryption != "starttls" && cfg.LegacyIntegrations.SMTPEncryption != "tls" && cfg.LegacyIntegrations.SMTPEncryption != "none" {
+		cfg.LegacyIntegrations.SMTPEncryption = "starttls"
 	}
 	if cfg.PublicURL != "" {
 		parsed, err := url.ParseRequestURI(cfg.PublicURL)

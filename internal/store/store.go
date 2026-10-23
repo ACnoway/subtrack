@@ -17,10 +17,11 @@ import (
 var migrationFiles embed.FS
 
 type Store struct {
-	db *sql.DB
+	db               *sql.DB
+	encryptionSecret []byte
 }
 
-func Open(ctx context.Context, databaseURL string) (*Store, error) {
+func Open(ctx context.Context, databaseURL string, encryptionSecret []byte) (*Store, error) {
 	db, err := sql.Open("pgx", databaseURL)
 	if err != nil {
 		return nil, fmt.Errorf("open database: %w", err)
@@ -35,7 +36,7 @@ func Open(ctx context.Context, databaseURL string) (*Store, error) {
 		_ = db.Close()
 		return nil, fmt.Errorf("connect to database: %w", err)
 	}
-	store := &Store{db: db}
+	store := &Store{db: db, encryptionSecret: append([]byte(nil), encryptionSecret...)}
 	if err := store.Migrate(ctx); err != nil {
 		_ = db.Close()
 		return nil, err
