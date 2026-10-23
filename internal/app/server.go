@@ -44,9 +44,9 @@ func (s *Server) Handler() http.Handler {
 	return s.recoverPanics(s.logRequests(mux))
 }
 
-func staticFS() http.FileSystem {
+func staticFS() fs.FS {
 	files, _ := fs.Sub(assets, "static")
-	return http.FS(files)
+	return files
 }
 
 func (s *Server) logRequests(next http.Handler) http.Handler {

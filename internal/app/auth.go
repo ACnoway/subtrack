@@ -110,7 +110,7 @@ func (s *Server) authenticated(next http.Handler) http.Handler {
 			http.Error(w, "CSRF token 校验失败", http.StatusForbidden)
 			return
 		}
-		ctx := withSession(r, sess)
+		ctx := withSession(r.Context(), sess)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
