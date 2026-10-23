@@ -40,7 +40,7 @@ docker compose -f compose.dev.yaml up -d --build
 
 ### Release 部署
 
-`compose.release.yaml` 是完整的独立部署文件，会从 Docker Hub 拉取指定版本的应用镜像。先在 `.env` 中设置镜像，例如 `SUBTRACK_IMAGE=yourname/subtrack:0.1.0`，然后运行：
+`compose.release.yaml` 是完整的独立部署文件，默认从 Docker Hub 拉取 `acnofun/subtrack:latest`。如需固定版本，可在 `.env` 中设置 `SUBTRACK_IMAGE`，例如 `SUBTRACK_IMAGE=acnofun/subtrack:0.1.0`，然后运行：
 
 ```sh
 docker compose -f compose.release.yaml up -d
