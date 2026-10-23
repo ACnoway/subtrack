@@ -1,10 +1,14 @@
 package app
 
 import (
+	"html/template"
+	"io"
 	"math"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/ACnoway/subtrack/internal/store"
 )
 
 func TestNextCycleDate(t *testing.T) {
@@ -92,4 +96,35 @@ func TestParseBackupRejectsUnknownFieldsAndInvalidCustomCycle(t *testing.T) {
 	if _, err := parseBackup([]byte(invalid)); err == nil {
 		t.Fatal("custom renewal cycle without an interval was accepted")
 	}
+}
+
+func TestPhaseThreeTemplatesRender(t *testing.T) {
+	tests := []struct {
+		page string
+		data any
+	}{
+		{page: "dashboard.html", data: dashboardData{Title: "仪表盘"}},
+		{page: "calendar.html", data: calendarData{Title: "到期日历", Weeks: [][]calendarDay{{{Label: "23", Date: "2026-10-23", InMonth: true}}}}},
+		{page: "renewal_form.html", data: renewalPageData{
+			Title: "确认续费", CSRF: "token", Item: storeSubscriptionForTemplate(),
+			Form: renewalForm{RenewedAt: "2026-10-23", NewExpiresAt: "2027-10-23", Currency: "USD"}, Cycles: renewalCycles,
+		}},
+		{page: "renewals.html", data: renewalsData{Title: "续费历史"}},
+		{page: "data.html", data: dataPageData{Title: "数据备份"}},
+	}
+	for _, test := range tests {
+		t.Run(test.page, func(t *testing.T) {
+			tmpl, err := template.ParseFS(assets, "templates/layout.html", "templates/"+test.page)
+			if err != nil {
+				t.Fatalf("parse template: %v", err)
+			}
+			if err := tmpl.ExecuteTemplate(io.Discard, "layout.html", test.data); err != nil {
+				t.Fatalf("render template: %v", err)
+			}
+		})
+	}
+}
+
+func storeSubscriptionForTemplate() store.Subscription {
+	return store.Subscription{ID: 7, Name: "Test", RenewalCycle: "annual", Currency: "USD"}
 }
