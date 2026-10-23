@@ -8,32 +8,33 @@ import (
 )
 
 type Subscription struct {
-	ID            int64
-	Name          string
-	Category      string
-	Provider      string
-	AccountLabel  string
-	Description   string
-	StartDate     sql.NullTime
-	ExpiresAt     time.Time
-	NextBillingAt sql.NullTime
-	RenewalCycle  string
-	RenewalPrice  sql.NullFloat64
-	Currency      string
-	AutoRenew     bool
-	RenewalURL    string
-	Priority      int
-	Tags          string
-	Notes         string
-	Archived      bool
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
+	ID              int64
+	Name            string
+	Category        string
+	Provider        string
+	AccountLabel    string
+	Description     string
+	StartDate       sql.NullTime
+	ExpiresAt       time.Time
+	NextBillingAt   sql.NullTime
+	RenewalCycle    string
+	CustomCycleDays int
+	RenewalPrice    sql.NullFloat64
+	Currency        string
+	AutoRenew       bool
+	RenewalURL      string
+	Priority        int
+	Tags            string
+	Notes           string
+	Archived        bool
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
 }
 
 func (s *Store) ListSubscriptions(ctx context.Context, search, status, category string) ([]Subscription, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT id, name, category, provider, account_label, description, start_date,
-		       expires_at, next_billing_at, renewal_cycle, renewal_price, currency,
+	       expires_at, next_billing_at, renewal_cycle, custom_cycle_days, renewal_price, currency,
 		       auto_renew, renewal_url, priority, tags, notes, archived, created_at, updated_at
 		FROM subscriptions
 		WHERE (name ILIKE '%' || $1 || '%' OR provider ILIKE '%' || $1 || '%' OR account_label ILIKE '%' || $1 || '%' OR tags ILIKE '%' || $1 || '%')
@@ -67,7 +68,7 @@ func (s *Store) ListSubscriptions(ctx context.Context, search, status, category 
 func (s *Store) GetSubscription(ctx context.Context, id int64) (Subscription, error) {
 	row := s.db.QueryRowContext(ctx, `
 		SELECT id, name, category, provider, account_label, description, start_date,
-		       expires_at, next_billing_at, renewal_cycle, renewal_price, currency,
+	       expires_at, next_billing_at, renewal_cycle, custom_cycle_days, renewal_price, currency,
 		       auto_renew, renewal_url, priority, tags, notes, archived, created_at, updated_at
 		FROM subscriptions WHERE id = $1`, id)
 	item, err := scanSubscription(row)
@@ -87,13 +88,13 @@ func (s *Store) SaveSubscription(ctx context.Context, item Subscription) (int64,
 		err := s.db.QueryRowContext(ctx, `
 			INSERT INTO subscriptions (
 				name, category, provider, account_label, description, start_date, expires_at,
-				next_billing_at, renewal_cycle, renewal_price, currency, auto_renew,
-				renewal_url, priority, tags, notes
-			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+				next_billing_at, renewal_cycle, custom_cycle_days, renewal_price, currency, auto_renew,
+				renewal_url, priority, tags, notes, archived
+			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
 			RETURNING id`, item.Name, item.Category, item.Provider, item.AccountLabel, item.Description,
 			nullDate(item.StartDate), item.ExpiresAt, nullDate(item.NextBillingAt), item.RenewalCycle,
-			nullPrice(item.RenewalPrice), item.Currency, item.AutoRenew, item.RenewalURL, item.Priority,
-			item.Tags, item.Notes).Scan(&item.ID)
+			nullDays(item.CustomCycleDays), nullPrice(item.RenewalPrice), item.Currency, item.AutoRenew, item.RenewalURL, item.Priority,
+			item.Tags, item.Notes, item.Archived).Scan(&item.ID)
 		if err != nil {
 			return 0, fmt.Errorf("insert subscription: %w", err)
 		}
@@ -102,11 +103,11 @@ func (s *Store) SaveSubscription(ctx context.Context, item Subscription) (int64,
 	result, err := s.db.ExecContext(ctx, `
 		UPDATE subscriptions SET name=$2, category=$3, provider=$4, account_label=$5,
 			description=$6, start_date=$7, expires_at=$8, next_billing_at=$9,
-			renewal_cycle=$10, renewal_price=$11, currency=$12, auto_renew=$13,
-			renewal_url=$14, priority=$15, tags=$16, notes=$17, updated_at=now()
+			renewal_cycle=$10, custom_cycle_days=$11, renewal_price=$12, currency=$13, auto_renew=$14,
+			renewal_url=$15, priority=$16, tags=$17, notes=$18, updated_at=now()
 		WHERE id=$1`, item.ID, item.Name, item.Category, item.Provider, item.AccountLabel, item.Description,
 		nullDate(item.StartDate), item.ExpiresAt, nullDate(item.NextBillingAt), item.RenewalCycle,
-		nullPrice(item.RenewalPrice), item.Currency, item.AutoRenew, item.RenewalURL, item.Priority,
+		nullDays(item.CustomCycleDays), nullPrice(item.RenewalPrice), item.Currency, item.AutoRenew, item.RenewalURL, item.Priority,
 		item.Tags, item.Notes)
 	if err != nil {
 		return 0, fmt.Errorf("update subscription: %w", err)
@@ -157,12 +158,23 @@ type scanner interface {
 
 func scanSubscription(row scanner) (Subscription, error) {
 	var item Subscription
+	var customDays sql.NullInt64
 	err := row.Scan(&item.ID, &item.Name, &item.Category, &item.Provider, &item.AccountLabel,
 		&item.Description, &item.StartDate, &item.ExpiresAt, &item.NextBillingAt,
-		&item.RenewalCycle, &item.RenewalPrice, &item.Currency, &item.AutoRenew,
+		&item.RenewalCycle, &customDays, &item.RenewalPrice, &item.Currency, &item.AutoRenew,
 		&item.RenewalURL, &item.Priority, &item.Tags, &item.Notes, &item.Archived,
 		&item.CreatedAt, &item.UpdatedAt)
+	if customDays.Valid {
+		item.CustomCycleDays = int(customDays.Int64)
+	}
 	return item, err
+}
+
+func nullDays(value int) any {
+	if value <= 0 {
+		return nil
+	}
+	return value
 }
 
 func nullDate(value sql.NullTime) any {

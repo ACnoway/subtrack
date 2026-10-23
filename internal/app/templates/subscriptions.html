@@ -52,6 +52,7 @@
         <td>{{if .Item.AutoRenew}}<span class="renew-on">自动续费</span>{{else}}<span class="muted">手动续费</span>{{end}}</td>
         <td><span class="status status-{{.StatusClass}}">{{.StatusLabel}}</span></td>
         <td class="row-actions">
+          {{if not .Item.Archived}}<a class="small-action" href="/subscriptions/{{.Item.ID}}/renew">确认续费</a>{{end}}
           <a class="small-action" href="/subscriptions/{{.Item.ID}}/edit">编辑</a>
           {{if .Item.Archived}}
           <form method="post" action="/subscriptions/{{.Item.ID}}/restore">

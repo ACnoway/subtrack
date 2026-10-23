@@ -1,0 +1,11 @@
+{{define "content"}}
+<section class="page-heading"><div><div class="eyebrow">续费管理</div><h1>续费历史</h1><p class="muted">每次确认续费都会保留原到期日、新到期日和实付金额。</p></div><a class="button button-secondary" href="/data/export">导出完整备份</a></section>
+{{if .Success}}<div class="alert alert-success" role="status">续费记录已保存，资产到期日期和提醒计划已更新。</div>{{end}}
+<section class="table-card" aria-label="续费历史">
+  {{if .Items}}
+  <div class="table-scroll"><table><thead><tr><th>续费日期</th><th>资产</th><th>原到期日</th><th>新到期日</th><th>实付金额</th><th>备注</th></tr></thead><tbody>
+    {{range .Items}}<tr><td>{{.RenewedLabel}}</td><td><strong>{{.SubscriptionName}}</strong></td><td>{{.PreviousLabel}}</td><td>{{.NewLabel}}</td><td>{{.AmountLabel}}</td><td class="history-notes">{{if .Notes}}{{.Notes}}{{else}}—{{end}}</td></tr>{{end}}
+  </tbody></table></div>
+  {{else}}<div class="empty-state"><div class="empty-icon">↻</div><h2>还没有续费记录</h2><p class="muted">在资产列表中选择“确认续费”，即可记录本次付款并更新日期。</p><a class="button button-primary" href="/subscriptions">查看资产</a></div>{{end}}
+</section>
+{{end}}

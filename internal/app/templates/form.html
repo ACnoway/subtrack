@@ -42,6 +42,10 @@
     <label>续费周期 *
       <select name="renewal_cycle" required>{{range .Cycles}}<option value="{{.Value}}" {{if eq $.Form.RenewalCycle .Value}}selected{{end}}>{{.Label}}</option>{{end}}</select>
     </label>
+    <label>自定义周期天数
+      <input type="number" name="custom_cycle_days" min="1" max="36500" step="1" value="{{if .Form.CustomCycleDays}}{{.Form.CustomCycleDays}}{{end}}" placeholder="自定义周期时必填">
+      <small>选择“自定义”时填写 1 到 36500 天。</small>
+    </label>
     <label>续费价格
       <input type="number" name="renewal_price" min="0" max="9999999999.99" step="0.01" value="{{.Form.RenewalPrice}}" placeholder="可留空">
     </label>

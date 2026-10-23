@@ -1,0 +1,22 @@
+{{define "content"}}
+<section class="page-heading">
+  <div><div class="eyebrow">续费安排</div><h1>到期日历</h1><p class="muted">按资产到期日期查看本月安排。</p></div>
+  <a class="button button-primary" href="/subscriptions/new">＋ 添加资产</a>
+</section>
+<section class="panel calendar-panel">
+  <div class="calendar-toolbar">
+    <a class="button button-secondary" href="/calendar?month={{.PreviousMonth}}">← 上个月</a>
+    <h2>{{.MonthLabel}}</h2>
+    <a class="button button-secondary" href="/calendar?month={{.NextMonth}}">下个月 →</a>
+  </div>
+  <div class="calendar-grid" role="grid" aria-label="{{.MonthLabel}}到期日历">
+    <div class="calendar-weekday">周一</div><div class="calendar-weekday">周二</div><div class="calendar-weekday">周三</div><div class="calendar-weekday">周四</div><div class="calendar-weekday">周五</div><div class="calendar-weekday">周六</div><div class="calendar-weekday">周日</div>
+    {{range .Weeks}}{{range .}}
+    <section class="calendar-day {{if not .InMonth}}calendar-day-outside{{end}} {{if .IsToday}}calendar-day-today{{end}}" role="gridcell" aria-label="{{.Date}}，{{len .Entries}} 项到期">
+      <div class="calendar-date">{{.Label}}</div>
+      {{range .Entries}}<a class="calendar-event {{if .IsBilling}}calendar-event-billing{{end}}" href="/subscriptions/{{.ID}}/edit" title="{{.Category}}：{{.Label}}">{{.Label}}</a>{{end}}
+    </section>
+    {{end}}{{end}}
+  </div>
+</section>
+{{end}}

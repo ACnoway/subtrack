@@ -43,23 +43,24 @@ type option struct {
 }
 
 type subscriptionForm struct {
-	ID            int64
-	Name          string
-	Category      string
-	Provider      string
-	AccountLabel  string
-	Description   string
-	StartDate     string
-	ExpiresAt     string
-	NextBillingAt string
-	RenewalCycle  string
-	RenewalPrice  string
-	Currency      string
-	AutoRenew     bool
-	RenewalURL    string
-	Priority      int
-	Tags          string
-	Notes         string
+	ID              int64
+	Name            string
+	Category        string
+	Provider        string
+	AccountLabel    string
+	Description     string
+	StartDate       string
+	ExpiresAt       string
+	NextBillingAt   string
+	RenewalCycle    string
+	CustomCycleDays int
+	RenewalPrice    string
+	Currency        string
+	AutoRenew       bool
+	RenewalURL      string
+	Priority        int
+	Tags            string
+	Notes           string
 }
 
 type subscriptionRow struct {
@@ -314,6 +315,11 @@ func parseSubscriptionForm(r *http.Request) (subscriptionForm, store.Subscriptio
 		Notes: strings.TrimSpace(r.FormValue("notes")),
 	}
 	form.Priority, _ = strconv.Atoi(r.FormValue("priority"))
+	form.CustomCycleDays, _ = strconv.Atoi(r.FormValue("custom_cycle_days"))
+	return validateSubscriptionForm(form)
+}
+
+func validateSubscriptionForm(form subscriptionForm) (subscriptionForm, store.Subscription, error) {
 	if utf8.RuneCountInString(form.Name) == 0 || utf8.RuneCountInString(form.Name) > 120 {
 		return form, store.Subscription{}, fmt.Errorf("资产名称不能为空，且不能超过 120 个字符。")
 	}
@@ -327,6 +333,15 @@ func parseSubscriptionForm(r *http.Request) (subscriptionForm, store.Subscriptio
 	}
 	if !validCycle(form.RenewalCycle) {
 		return form, store.Subscription{}, fmt.Errorf("请选择有效的续费周期。")
+	}
+	if form.RenewalCycle == "custom" && (form.CustomCycleDays < 1 || form.CustomCycleDays > 36500) {
+		return form, store.Subscription{}, fmt.Errorf("自定义续费周期请填写 1 到 36500 天。")
+	}
+	if form.CustomCycleDays < 0 || form.CustomCycleDays > 36500 {
+		return form, store.Subscription{}, fmt.Errorf("自定义续费周期天数不能超过 36500 天。")
+	}
+	if form.RenewalCycle != "custom" {
+		form.CustomCycleDays = 0
 	}
 	if len(form.Currency) != 3 || strings.Trim(form.Currency, "ABCDEFGHIJKLMNOPQRSTUVWXYZ") != "" {
 		return form, store.Subscription{}, fmt.Errorf("货币请填写 3 位大写代码，例如 USD 或 CNY。")
@@ -363,7 +378,7 @@ func parseSubscriptionForm(r *http.Request) (subscriptionForm, store.Subscriptio
 	item := store.Subscription{
 		Name: form.Name, Category: form.Category, Provider: form.Provider, AccountLabel: form.AccountLabel,
 		Description: form.Description, StartDate: startDate, ExpiresAt: expiresAt.Time, NextBillingAt: nextBillingAt,
-		RenewalCycle: form.RenewalCycle, RenewalPrice: price, Currency: form.Currency,
+		RenewalCycle: form.RenewalCycle, CustomCycleDays: form.CustomCycleDays, RenewalPrice: price, Currency: form.Currency,
 		AutoRenew: form.AutoRenew, RenewalURL: form.RenewalURL, Priority: form.Priority,
 		Tags: form.Tags, Notes: form.Notes,
 	}
@@ -374,7 +389,7 @@ func formFromItem(item store.Subscription) subscriptionForm {
 	form := subscriptionForm{
 		ID: item.ID, Name: item.Name, Category: item.Category, Provider: item.Provider,
 		AccountLabel: item.AccountLabel, Description: item.Description, ExpiresAt: item.ExpiresAt.Format("2006-01-02"),
-		RenewalCycle: item.RenewalCycle, Currency: strings.TrimSpace(item.Currency), AutoRenew: item.AutoRenew,
+		RenewalCycle: item.RenewalCycle, CustomCycleDays: item.CustomCycleDays, Currency: strings.TrimSpace(item.Currency), AutoRenew: item.AutoRenew,
 		RenewalURL: item.RenewalURL, Priority: item.Priority, Tags: item.Tags, Notes: item.Notes,
 	}
 	if item.StartDate.Valid {
@@ -442,11 +457,18 @@ func (s *Server) row(item store.Subscription) subscriptionRow {
 		price = fmt.Sprintf("%s %.2f", strings.TrimSpace(item.Currency), item.RenewalPrice.Float64)
 	}
 	return subscriptionRow{
-		Item: item, CategoryLabel: labelFor(categories, item.Category), CycleLabel: labelFor(renewalCycles, item.RenewalCycle),
+		Item: item, CategoryLabel: labelFor(categories, item.Category), CycleLabel: cycleLabel(item),
 		ExpiryLabel: item.ExpiresAt.Format("2006-01-02"), DaysRemaining: days,
 		DaysOverdue: max(0, -days),
 		StatusLabel: statusLabel, StatusClass: statusClass, PriceLabel: price,
 	}
+}
+
+func cycleLabel(item store.Subscription) string {
+	if item.RenewalCycle == "custom" && item.CustomCycleDays > 0 {
+		return fmt.Sprintf("每 %d 天", item.CustomCycleDays)
+	}
+	return labelFor(renewalCycles, item.RenewalCycle)
 }
 
 func labelFor(options []option, value string) string {

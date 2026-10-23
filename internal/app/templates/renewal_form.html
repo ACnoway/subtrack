@@ -1,0 +1,18 @@
+{{define "content"}}
+<section class="page-heading form-heading">
+  <div><a class="back-link" href="/subscriptions">← 返回资产列表</a><div class="eyebrow">续费确认</div><h1>{{.Item.Name}}</h1><p class="muted">当前到期日：{{.PreviousExpires}} · {{if eq .Item.RenewalCycle "one_time"}}一次性{{else if eq .Item.RenewalCycle "custom"}}{{if .Item.CustomCycleDays}}每 {{.Item.CustomCycleDays}} 天{{else}}自定义周期{{end}}{{else}}{{range $.Cycles}}{{if eq $.Item.RenewalCycle .Value}}{{.Label}}{{end}}{{end}}{{end}}</p></div>
+</section>
+{{if .Error}}<div class="alert alert-error" role="alert">{{.Error}}</div>{{end}}
+<form class="form-card" method="post" action="/subscriptions/{{.Item.ID}}/renew">
+  <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+  <div class="form-grid">
+    <label>续费日期 *<input type="date" name="renewed_at" value="{{.Form.RenewedAt}}" required></label>
+    <label>新的到期日期 *<input type="date" name="new_expires_at" value="{{.Form.NewExpiresAt}}" required><small>系统按续费周期给出建议，可根据服务商实际日期修改。</small></label>
+    <label>下次扣费日期<input type="date" name="next_billing_at" value="{{.Form.NextBillingAt}}"><small>可与到期日期不同；留空表示不记录。</small></label>
+    <label>本次实付金额<input type="number" name="amount" min="0" max="9999999999.99" step="0.01" value="{{.Form.Amount}}" placeholder="可留空"></label>
+    <label>货币代码 *<input name="currency" minlength="3" maxlength="3" pattern="[A-Za-z]{3}" value="{{.Form.Currency}}" required></label>
+    <label class="span-2">续费备注<textarea name="notes" maxlength="1000" rows="3" placeholder="可记录订单号或价格变化">{{.Form.Notes}}</textarea></label>
+  </div>
+  <div class="form-footer"><a class="button button-secondary" href="/subscriptions">取消</a><button class="button button-primary" type="submit">保存续费记录并更新日期</button></div>
+</form>
+{{end}}

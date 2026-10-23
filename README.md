@@ -1,6 +1,6 @@
 # SubTrack
 
-SubTrack 是一个自托管的订阅与数字资产管理平台，用于集中记录 VPS、域名、云服务、软件订阅和 API 服务的费用及到期信息，并通过 Email 和 Telegram 发送到期提醒。项目当前已完成第二阶段：可靠通知系统。
+SubTrack 是一个自托管的订阅与数字资产管理平台，用于集中记录 VPS、域名、云服务、软件订阅和 API 服务的费用及到期信息，并通过 Email 和 Telegram 发送到期提醒。项目当前已完成第三阶段：续费和统计。
 
 ## 当前功能
 
@@ -9,13 +9,18 @@ SubTrack 是一个自托管的订阅与数字资产管理平台，用于集中�
 - 记录类别、服务商、账户备注、购买/到期/扣费日期、续费周期与价格、自动续费、续费链接、优先级、标签和备注。
 - 按名称、服务商、账户和标签搜索，按类别及到期状态筛选。
 - 展示正常、30 天内到期、今天到期、已过期和已归档状态。
+- 在仪表盘查看到期概览、近期到期资产，以及按币种和类别折算的月度/年度预计支出。
+- 按月查看到期日历，分别标记到期和下次扣费日期。
+- 手动确认续费，按续费周期建议新日期并允许修改；月末日期按目标月份最后一天截断。
+- 保存续费历史，并在同一数据库事务中更新资产到期日和下次扣费日。
+- 导出或导入包含资产、归档状态及续费历史的 JSON 备份；导入为新增操作并整体事务提交。
 - PostgreSQL 持久化和启动时自动执行的版本化 SQL 迁移。
 - Email SMTP 通知、Telegram Bot 一次性链接绑定、通知测试及发送历史。
 - 可配置提醒天数、重要资产额外提醒、发送时区和每日发送时间。
 - 独立 Go Worker 提前生成持久化任务，按渠道去重并对失败发送进行指数退避重试；已发送任务不会重复发送。
 - Docker Compose 分别运行 Web、Worker 和 PostgreSQL，数据库数据保存在命名卷中。
 
-续费历史、统计仪表盘、日历视图和多用户支持属于后续阶段。完整规划见[开发大纲](docs/开发大纲.md)。
+多用户支持和服务商自动同步属于后续阶段。完整规划见[开发大纲](docs/开发大纲.md)。
 
 ## 部署
 
@@ -45,7 +50,7 @@ docker compose -f compose.dev.yaml up -d --build
 
 ### Release 部署
 
-`compose.release.yaml` 是完整的独立部署文件，会从 Docker Hub 拉取 `acnofun/subtrack:latest`。如需固定到某个版本，编辑该文件中 `app.image` 的值，例如 `acnofun/subtrack:0.1.0`，然后运行：
+`compose.release.yaml` 是完整的独立部署文件，会从 Docker Hub 拉取 `acnofun/subtrack:latest`。如需固定到某个版本，编辑该文件中 `app.image` 的值，例如 `acnofun/subtrack:0.3.0`，然后运行：
 
 ```sh
 docker compose -f compose.release.yaml up -d
@@ -71,7 +76,7 @@ docker compose -f compose.dev.yaml down
 
 ## 自动发布与版本管理
 
-推送 `v0.1.0` 形式的正式版本 tag 后，GitHub Actions 会检查 Go 代码，构建 amd64/arm64 镜像并推送 Docker Hub。普通 commit、PR 和预发布 tag 不触发镜像发布。配置凭据、版本规则、发布命令及预构建镜像部署方式见[版本发布文档](docs/版本发布.md)。
+推送 `v0.3.0` 形式的正式版本 tag 后，GitHub Actions 会检查 Go 代码，构建 amd64/arm64 镜像并推送 Docker Hub。普通 commit、PR 和预发布 tag 不触发镜像发布。配置凭据、版本规则、发布命令及预构建镜像部署方式见[版本发布文档](docs/版本发布.md)。
 
 ## 本地开发
 

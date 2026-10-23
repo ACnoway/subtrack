@@ -1,0 +1,16 @@
+{{define "content"}}
+<section class="page-heading"><div><div class="eyebrow">数据管理</div><h1>数据备份与恢复</h1><p class="muted">导出包含资产、归档状态和续费历史的 JSON 文件。</p></div></section>
+{{if .Error}}<div class="alert alert-error" role="alert">{{.Error}}</div>{{end}}
+{{if .Success}}<div class="alert alert-success" role="status">{{.Success}}</div>{{end}}
+<div class="settings-actions data-actions">
+  <section class="panel action-card"><h2>导出完整备份</h2><p class="muted">当前包含 {{.SubscriptionCount}} 项资产和 {{.RenewalCount}} 条续费记录。导出的文件可用于迁移或恢复。</p><a class="button button-primary" href="/data/export">下载 JSON 备份</a></section>
+  <section class="panel action-card"><h2>导入备份</h2><p class="muted">导入会新增文件中的资产和续费记录，不会覆盖现有数据；请避免重复导入同一备份。</p>
+    <form class="stack-form import-form" method="post" action="/data/import" enctype="multipart/form-data">
+      <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+      <label>SubTrack JSON 备份<input type="file" name="backup" accept="application/json,.json" required></label>
+      <small>单个文件最大 4 MiB；每个备份最多 5000 项资产和 5000 条续费记录。导入在单个事务中完成。</small>
+      <button class="button button-secondary" type="submit" onclick="return confirm('导入会新增备份中的所有数据，继续吗？')">导入备份</button>
+    </form>
+  </section>
+</div>
+{{end}}

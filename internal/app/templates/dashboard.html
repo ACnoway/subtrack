@@ -1,0 +1,50 @@
+{{define "content"}}
+<section class="page-heading">
+  <div>
+    <div class="eyebrow">概览</div>
+    <h1>订阅仪表盘</h1>
+    <p class="muted">查看近期到期资产和按币种估算的周期支出。</p>
+  </div>
+  <a class="button button-primary" href="/subscriptions/new">＋ 添加资产</a>
+</section>
+
+<section class="stat-grid" aria-label="资产统计">
+  <article class="stat-card"><span>未归档资产</span><strong>{{.Total}}</strong><a href="/subscriptions">查看资产</a></article>
+  <article class="stat-card"><span>未来 7 天到期</span><strong>{{.DueIn7Days}}</strong><a href="/subscriptions?status=upcoming">查看即将到期</a></article>
+  <article class="stat-card"><span>未来 30 天到期</span><strong>{{.DueIn30Days}}</strong><a href="/subscriptions?status=upcoming">查看即将到期</a></article>
+  <article class="stat-card stat-card-alert"><span>已过期</span><strong>{{.Expired}}</strong><a href="/subscriptions?status=expired">查看已过期</a></article>
+</section>
+
+<div class="dashboard-columns">
+  <section class="panel">
+    <div class="panel-heading"><div><h2>预计周期支出</h2><p class="muted">按当前续费价格折算；不同币种分别统计，一次性项目不计入。</p></div></div>
+    {{if .CurrencyCosts}}
+    <div class="cost-grid">
+      {{range .CurrencyCosts}}
+      <article class="cost-card"><span>{{.Currency}} / 月</span><strong>{{printf "%.2f" .Monthly}}</strong><small>约 {{.Currency}} {{printf "%.2f" .Yearly}} / 年</small></article>
+      {{end}}
+    </div>
+    {{else}}<p class="empty-inline">添加续费价格后，这里会显示预计支出。</p>{{end}}
+    {{if .CategoryCosts}}
+    <div class="category-costs"><h3>按类别年化</h3>
+      {{range .CategoryCosts}}<div class="category-cost-row"><span>{{.Label}}</span><strong>{{.Currency}} {{printf "%.2f" .Yearly}}</strong></div>{{end}}
+    </div>
+    {{end}}
+  </section>
+
+  <section class="panel">
+    <div class="panel-heading"><div><h2>近期到期</h2><p class="muted">包括已过期和未来 30 天内到期的资产。</p></div><a class="small-action" href="/calendar">打开日历</a></div>
+    {{if .Upcoming}}
+    <div class="upcoming-list">
+      {{range .Upcoming}}
+      <a class="upcoming-item" href="/subscriptions/{{.Item.ID}}/edit">
+        <span class="upcoming-date">{{.ExpiryLabel}}</span>
+        <span class="upcoming-name"><strong>{{.Item.Name}}</strong><small>{{.CategoryLabel}}{{if .Item.Provider}} · {{.Item.Provider}}{{end}}</small></span>
+        <span class="status status-{{.StatusClass}}">{{.StatusLabel}}</span>
+      </a>
+      {{end}}
+    </div>
+    {{else}}<p class="empty-inline">未来 30 天没有到期资产。</p>{{end}}
+  </section>
+</div>
+{{end}}
