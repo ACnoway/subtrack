@@ -53,6 +53,10 @@ docker compose down
 
 数据库保存在 `subtrack_data` 命名卷中。`docker compose down -v` 会删除该卷和数据库内容，请仅在确实要清空数据时使用。
 
+## 自动发布与版本管理
+
+推送 `v0.1.0` 形式的正式版本 tag 后，GitHub Actions 会检查 Go 代码，构建 amd64/arm64 镜像并推送 Docker Hub。普通 commit、PR 和预发布 tag 不触发镜像发布。配置凭据、版本规则、发布命令及预构建镜像部署方式见[版本发布文档](docs/版本发布.md)。
+
 ## 本地开发
 
 需要 Go 1.26 或更新版本，以及一个 PostgreSQL 实例。设置 `DATABASE_URL`、`ADMIN_USERNAME`、`ADMIN_PASSWORD` 和至少 32 个字符的 `SESSION_SECRET` 后运行：
