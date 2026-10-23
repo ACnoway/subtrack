@@ -53,8 +53,8 @@ func TestPlanReminderJobsAddsImportantAndAfterExpiryRules(t *testing.T) {
 		planned[2].item.ID != important.ID || planned[2].offset != 60 {
 		t.Fatalf("important asset rules were not merged in order: %#v", planned)
 	}
-	if !planned[2].scheduledAt.Equal(today) {
-		t.Fatalf("important 60-day reminder time = %s, want today %s", planned[2].scheduledAt, today)
+	if !dateAt(planned[2].scheduledAt, zone).Equal(today) || planned[2].scheduledAt.Hour() != 8 {
+		t.Fatalf("important 60-day reminder time = %s, want today at 08:00", planned[2].scheduledAt)
 	}
 	if planned[3].item.ID != postExpiry.ID || planned[3].offset != -1 || !planned[3].scheduledAt.Equal(today) {
 		t.Fatalf("post-expiry reminder plan = %#v", planned[3])
