@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"sort"
 	"strconv"
 	"strings"
 	"syscall"
@@ -139,7 +140,31 @@ func (w *Worker) scheduleJobs(ctx context.Context, settings store.NotificationSe
 	if err != nil {
 		return err
 	}
+	for _, planned := range planReminderJobs(items, rules, today, zone, clock.Hour(), clock.Minute()) {
+		if settings.EmailEnabled && settings.Email != "" {
+			if err := w.store.InsertReminderJob(ctx, planned.item, planned.targetDate, planned.offset, "email", planned.scheduledAt); err != nil {
+				return err
+			}
+		}
+		if settings.TelegramEnabled && settings.TelegramChatID != "" {
+			if err := w.store.InsertReminderJob(ctx, planned.item, planned.targetDate, planned.offset, "telegram", planned.scheduledAt); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+type plannedReminder struct {
+	item        store.ReminderSubscription
+	targetDate  time.Time
+	offset      int
+	scheduledAt time.Time
+}
+
+func planReminderJobs(items []store.ReminderSubscription, rules store.ReminderRules, today time.Time, zone *time.Location, hour, minute int) []plannedReminder {
 	windowEnd := today.AddDate(0, 0, maxReminderOffset)
+	planned := make([]plannedReminder, 0)
 	for _, item := range items {
 		expiresDate := time.Date(item.ExpiresAt.Year(), item.ExpiresAt.Month(), item.ExpiresAt.Day(), 0, 0, 0, 0, zone)
 		important := item.Priority == 3 || item.Category == "domain" || item.Category == "certificate"
@@ -152,25 +177,21 @@ func (w *Worker) scheduleJobs(ctx context.Context, settings store.NotificationSe
 				offsets[value] = struct{}{}
 			}
 		}
-		for offset := range offsets {
+		orderedOffsets := make([]int, 0, len(offsets))
+		for value := range offsets {
+			orderedOffsets = append(orderedOffsets, value)
+		}
+		sort.Ints(orderedOffsets)
+		for _, offset := range orderedOffsets {
 			alertDate := expiresDate.AddDate(0, 0, -offset)
 			if alertDate.Before(today) || alertDate.After(windowEnd) {
 				continue
 			}
-			scheduledAt := time.Date(alertDate.Year(), alertDate.Month(), alertDate.Day(), clock.Hour(), clock.Minute(), 0, 0, zone)
-			if settings.EmailEnabled && settings.Email != "" {
-				if err := w.store.InsertReminderJob(ctx, item, expiresDate, offset, "email", scheduledAt); err != nil {
-					return err
-				}
-			}
-			if settings.TelegramEnabled && settings.TelegramChatID != "" {
-				if err := w.store.InsertReminderJob(ctx, item, expiresDate, offset, "telegram", scheduledAt); err != nil {
-					return err
-				}
-			}
+			scheduledAt := time.Date(alertDate.Year(), alertDate.Month(), alertDate.Day(), hour, minute, 0, 0, zone)
+			planned = append(planned, plannedReminder{item: item, targetDate: expiresDate, offset: offset, scheduledAt: scheduledAt})
 		}
 	}
-	return nil
+	return planned
 }
 
 func (w *Worker) send(ctx context.Context, settings store.NotificationSettings, job store.NotificationJob) error {
