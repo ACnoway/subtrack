@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>{{.Title}} · SubTrack</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/subscriptions"><span class="brand-mark">S</span>SubTrack</a>
+    {{if ne .Title "登录"}}
+    <nav class="top-actions" aria-label="主导航">
+      <a href="/subscriptions">资产</a>
+      <form method="post" action="/logout">
+        <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+        <button class="link-button" type="submit">退出登录</button>
+      </form>
+    </nav>
+    {{end}}
+  </header>
+  <main class="main-shell">
+    {{block "content" .}}{{end}}
+  </main>
+  <footer class="footer">SubTrack · 自托管订阅与数字资产管理</footer>
+</body>
+</html>

@@ -1,0 +1,86 @@
+{{define "content"}}
+<section class="page-heading">
+  <div>
+    <div class="eyebrow">资产总览</div>
+    <h1>订阅与数字资产</h1>
+    <p class="muted">集中查看服务、到期时间和续费信息。</p>
+  </div>
+  <a class="button button-primary" href="/subscriptions/new">＋ 添加资产</a>
+</section>
+
+<form class="filters" method="get" action="/subscriptions">
+  <label class="search-field">
+    <span class="sr-only">搜索资产</span>
+    <input type="search" name="q" value="{{.Search}}" placeholder="搜索名称、服务商、账号或标签">
+  </label>
+  <label><span class="sr-only">到期状态</span>
+    <select name="status">
+      <option value="all" {{if eq .Status "all"}}selected{{end}}>全部未归档</option>
+      <option value="upcoming" {{if eq .Status "upcoming"}}selected{{end}}>30 天内到期</option>
+      <option value="expired" {{if eq .Status "expired"}}selected{{end}}>已过期</option>
+      <option value="active" {{if eq .Status "active"}}selected{{end}}>正常</option>
+      <option value="archived" {{if eq .Status "archived"}}selected{{end}}>已归档</option>
+    </select>
+  </label>
+  <label><span class="sr-only">资产类别</span>
+    <select name="category">
+      <option value="all">全部类别</option>
+      {{range .Categories}}<option value="{{.Value}}" {{if eq $.Category .Value}}selected{{end}}>{{.Label}}</option>{{end}}
+    </select>
+  </label>
+  <button class="button button-secondary" type="submit">筛选</button>
+</form>
+
+<section class="table-card" aria-label="资产列表">
+  {{if .Items}}
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>资产</th><th>类别 / 服务商</th><th>到期日期</th><th>费用</th><th>续费</th><th>状态</th><th><span class="sr-only">操作</span></th></tr></thead>
+      <tbody>
+      {{range .Items}}
+      <tr>
+        <td class="name-cell">
+          <strong>{{.Item.Name}}</strong>
+          {{if .Item.AccountLabel}}<span class="subline">{{.Item.AccountLabel}}</span>{{end}}
+          {{if .Item.Tags}}<span class="tagline">{{.Item.Tags}}</span>{{end}}
+        </td>
+        <td><span class="category-pill">{{.CategoryLabel}}</span>{{if .Item.Provider}}<span class="subline">{{.Item.Provider}}</span>{{end}}</td>
+        <td><strong>{{.ExpiryLabel}}</strong>
+          {{if not .Item.Archived}}<span class="subline">{{if lt .DaysRemaining 0}}已过期 {{.DaysOverdue}} 天{{else if eq .DaysRemaining 0}}今天到期{{else}}剩余 {{.DaysRemaining}} 天{{end}}</span>{{end}}
+        </td>
+        <td>{{.PriceLabel}}<span class="subline">{{.CycleLabel}}</span></td>
+        <td>{{if .Item.AutoRenew}}<span class="renew-on">自动续费</span>{{else}}<span class="muted">手动续费</span>{{end}}</td>
+        <td><span class="status status-{{.StatusClass}}">{{.StatusLabel}}</span></td>
+        <td class="row-actions">
+          <a class="small-action" href="/subscriptions/{{.Item.ID}}/edit">编辑</a>
+          {{if .Item.Archived}}
+          <form method="post" action="/subscriptions/{{.Item.ID}}/restore">
+            <input type="hidden" name="csrf_token" value="{{$.CSRF}}">
+            <button class="small-action" type="submit">恢复</button>
+          </form>
+          {{else}}
+          <form method="post" action="/subscriptions/{{.Item.ID}}/archive" onsubmit="return confirm('归档后可在“已归档”中恢复，继续吗？')">
+            <input type="hidden" name="csrf_token" value="{{$.CSRF}}">
+            <button class="small-action" type="submit">归档</button>
+          </form>
+          {{end}}
+          <form method="post" action="/subscriptions/{{.Item.ID}}/delete" onsubmit="return confirm('永久删除该资产及其信息？此操作不可撤销。')">
+            <input type="hidden" name="csrf_token" value="{{$.CSRF}}">
+            <button class="small-action danger-text" type="submit">删除</button>
+          </form>
+        </td>
+      </tr>
+      {{end}}
+      </tbody>
+    </table>
+  </div>
+  {{else}}
+  <div class="empty-state">
+    <div class="empty-icon">○</div>
+    <h2>这里还没有资产</h2>
+    <p class="muted">添加第一项 VPS、域名或订阅，开始记录续费日期。</p>
+    <a class="button button-primary" href="/subscriptions/new">添加第一项资产</a>
+  </div>
+  {{end}}
+</section>
+{{end}}

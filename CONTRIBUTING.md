@@ -1,6 +1,6 @@
 # 贡献指南
 
-感谢你关注 SubTrack。项目当前处于规划和初始化阶段；提交代码前，请先阅读 [README](README.md) 和[开发大纲](docs/开发大纲.md)，并在 Issue 中说明问题或拟议的改动。
+感谢你关注 SubTrack。提交代码前，请先阅读 [README](README.md) 和[开发大纲](docs/开发大纲.md)，并在 Issue 中说明问题或拟议的改动。
 
 ## 提交建议
 
@@ -10,4 +10,15 @@
 - 不要提交 `.env`、访问令牌、SMTP 密码、Bot Token、真实用户数据或其他凭据。
 - 更新功能行为时，请同步维护相关文档。
 
-项目建立可运行的开发环境后，本指南会补充 Go 格式化、构建和验证命令。
+## 开发与验证
+
+项目使用 Go 1.26+ 和 PostgreSQL。设置所需环境变量并准备数据库后，可运行：
+
+```sh
+gofmt -w ./cmd ./internal
+go test ./...
+go vet ./...
+docker compose up --build
+```
+
+启动过程中会自动应用版本化 SQL 迁移。`.env`、数据库连接串及其他真实凭据不得提交。

@@ -1,0 +1,73 @@
+{{define "content"}}
+<section class="page-heading form-heading">
+  <div>
+    <a class="back-link" href="/subscriptions">← 返回资产列表</a>
+    <div class="eyebrow">资产信息</div>
+    <h1>{{if .IsEdit}}编辑资产{{else}}添加资产{{end}}</h1>
+    <p class="muted">带 * 的字段为必填项。</p>
+  </div>
+</section>
+{{if .Error}}<div class="alert alert-error" role="alert">{{.Error}}</div>{{end}}
+<form class="form-card" method="post" action="{{if .IsEdit}}/subscriptions/{{.Form.ID}}{{else}}/subscriptions{{end}}">
+  <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+  <div class="form-grid">
+    <label class="span-2">资产名称 *
+      <input name="name" maxlength="120" value="{{.Form.Name}}" required placeholder="例如：Hetzner CX22">
+    </label>
+    <label>资产类别 *
+      <select name="category" required>{{range .Categories}}<option value="{{.Value}}" {{if eq $.Form.Category .Value}}selected{{end}}>{{.Label}}</option>{{end}}</select>
+    </label>
+    <label>服务商
+      <input name="provider" maxlength="200" value="{{.Form.Provider}}" placeholder="例如：Hetzner">
+    </label>
+    <label>所属账户备注
+      <input name="account_label" maxlength="200" value="{{.Form.AccountLabel}}" placeholder="用于区分不同账号">
+    </label>
+    <label>优先级
+      <select name="priority">
+        <option value="1" {{if eq .Form.Priority 1}}selected{{end}}>低</option>
+        <option value="2" {{if eq .Form.Priority 2}}selected{{end}}>普通</option>
+        <option value="3" {{if eq .Form.Priority 3}}selected{{end}}>高</option>
+      </select>
+    </label>
+    <label>购买日期
+      <input type="date" name="start_date" value="{{.Form.StartDate}}">
+    </label>
+    <label>到期日期 *
+      <input type="date" name="expires_at" value="{{.Form.ExpiresAt}}" required>
+    </label>
+    <label>下次扣费日期
+      <input type="date" name="next_billing_at" value="{{.Form.NextBillingAt}}">
+    </label>
+    <label>续费周期 *
+      <select name="renewal_cycle" required>{{range .Cycles}}<option value="{{.Value}}" {{if eq $.Form.RenewalCycle .Value}}selected{{end}}>{{.Label}}</option>{{end}}</select>
+    </label>
+    <label>续费价格
+      <input type="number" name="renewal_price" min="0" max="9999999999.99" step="0.01" value="{{.Form.RenewalPrice}}" placeholder="可留空">
+    </label>
+    <label>货币代码 *
+      <input name="currency" minlength="3" maxlength="3" pattern="[A-Za-z]{3}" value="{{.Form.Currency}}" required placeholder="USD">
+    </label>
+    <label class="span-2">续费链接
+      <input type="url" name="renewal_url" value="{{.Form.RenewalURL}}" placeholder="https://">
+    </label>
+    <label class="span-2">标签
+      <input name="tags" maxlength="500" value="{{.Form.Tags}}" placeholder="例如：生产环境, 欧洲">
+    </label>
+    <label class="span-2">简要描述
+      <textarea name="description" maxlength="1000" rows="2" placeholder="用途或其他识别信息">{{.Form.Description}}</textarea>
+    </label>
+    <label class="span-2">备注
+      <textarea name="notes" maxlength="4000" rows="3" placeholder="续费注意事项等">{{.Form.Notes}}</textarea>
+    </label>
+    <label class="checkbox-field span-2">
+      <input type="checkbox" name="auto_renew" {{if .Form.AutoRenew}}checked{{end}}>
+      <span><strong>已开启自动续费</strong><small>之后可在列表中快速识别；提醒功能将在后续阶段实现。</small></span>
+    </label>
+  </div>
+  <div class="form-footer">
+    <a class="button button-secondary" href="/subscriptions">取消</a>
+    <button class="button button-primary" type="submit">{{if .IsEdit}}保存修改{{else}}保存资产{{end}}</button>
+  </div>
+</form>
+{{end}}
