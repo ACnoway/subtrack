@@ -16,7 +16,7 @@ services:
       start_period: 5s
 
   app:
-    image: ${SUBTRACK_IMAGE:-acnofun/subtrack:latest}
+    image: acnofun/subtrack:latest
     pull_policy: always
     restart: unless-stopped
     depends_on:
