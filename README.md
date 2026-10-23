@@ -30,10 +30,20 @@ openssl rand -base64 48
 
 请将输出填入 `SESSION_SECRET`。`DATABASE_URL` 中的数据库用户名和密码须与 `POSTGRES_USER`、`POSTGRES_PASSWORD` 一致；若密码含 URL 特殊字符，请对连接串中的用户名和密码进行百分号编码。`.env` 已被 Git 忽略，不要提交真实密钥。
 
-启动服务：
+### 本地开发
+
+`compose.dev.yaml` 会从当前源码构建应用镜像：
 
 ```sh
-docker compose up -d --build
+docker compose -f compose.dev.yaml up -d --build
+```
+
+### Release 部署
+
+`compose.release.yaml` 是完整的独立部署文件，会从 Docker Hub 拉取指定版本的应用镜像。先在 `.env` 中设置镜像，例如 `SUBTRACK_IMAGE=yourname/subtrack:0.1.0`，然后运行：
+
+```sh
+docker compose -f compose.release.yaml up -d
 ```
 
 默认打开 `http://localhost:8080`，使用 `.env` 配置的管理员账号登录。可通过 `http://localhost:8080/healthz` 检查应用和数据库连接。部署到公网时应在 Caddy 或 Nginx 后启用 HTTPS，并将 `COOKIE_SECURE=true`。
@@ -41,14 +51,14 @@ docker compose up -d --build
 查看状态和日志：
 
 ```sh
-docker compose ps
-docker compose logs -f app
+docker compose -f compose.dev.yaml ps
+docker compose -f compose.dev.yaml logs -f app
 ```
 
-停止应用但保留数据：
+Release 部署时将命令中的 `compose.dev.yaml` 换成 `compose.release.yaml`。停止服务但保留数据：
 
 ```sh
-docker compose down
+docker compose -f compose.dev.yaml down
 ```
 
 数据库保存在 `subtrack_data` 命名卷中。`docker compose down -v` 会删除该卷和数据库内容，请仅在确实要清空数据时使用。
