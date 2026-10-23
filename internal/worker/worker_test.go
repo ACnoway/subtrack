@@ -20,13 +20,13 @@ func TestPlanReminderJobsUsesNotificationTimezone(t *testing.T) {
 	planned := planReminderJobs([]store.ReminderSubscription{item}, store.ReminderRules{
 		Default: []int{1, 0}, Important: []int{60},
 	}, today, zone, 9, 30)
-	if len(planned) != 1 {
-		t.Fatalf("planned %d jobs, want 1", len(planned))
+	if len(planned) != 2 {
+		t.Fatalf("planned %d jobs, want today and tomorrow reminders", len(planned))
 	}
-	if planned[0].offset != 1 {
-		t.Fatalf("planned offset = %d, want 1", planned[0].offset)
+	if planned[0].offset != 0 || planned[1].offset != 1 {
+		t.Fatalf("planned offsets = %d, %d; want 0, 1", planned[0].offset, planned[1].offset)
 	}
-	if got := planned[0].scheduledAt.Format("2006-01-02 15:04 MST"); got != "2026-10-23 09:30 CST" {
+	if got := planned[1].scheduledAt.Format("2006-01-02 15:04 MST"); got != "2026-10-23 09:30 CST" {
 		t.Fatalf("scheduled time = %q, want local 09:30", got)
 	}
 }
@@ -45,13 +45,18 @@ func TestPlanReminderJobsAddsImportantAndAfterExpiryRules(t *testing.T) {
 	planned := planReminderJobs([]store.ReminderSubscription{important, postExpiry}, store.ReminderRules{
 		Default: []int{30, -1}, Important: []int{60},
 	}, today, zone, 8, 0)
-	if len(planned) != 3 {
-		t.Fatalf("planned %d jobs, want 3", len(planned))
+	if len(planned) != 4 {
+		t.Fatalf("planned %d jobs, want the important and post-expiry reminders", len(planned))
 	}
-	if planned[0].item.ID != important.ID || planned[0].offset != 30 || planned[1].item.ID != important.ID || planned[1].offset != 60 {
+	if planned[0].item.ID != important.ID || planned[0].offset != -1 ||
+		planned[1].item.ID != important.ID || planned[1].offset != 30 ||
+		planned[2].item.ID != important.ID || planned[2].offset != 60 {
 		t.Fatalf("important asset rules were not merged in order: %#v", planned)
 	}
-	if planned[2].item.ID != postExpiry.ID || planned[2].offset != -1 || !planned[2].scheduledAt.Equal(today) {
-		t.Fatalf("post-expiry reminder plan = %#v", planned[2])
+	if !planned[2].scheduledAt.Equal(today) {
+		t.Fatalf("important 60-day reminder time = %s, want today %s", planned[2].scheduledAt, today)
+	}
+	if planned[3].item.ID != postExpiry.ID || planned[3].offset != -1 || !planned[3].scheduledAt.Equal(today) {
+		t.Fatalf("post-expiry reminder plan = %#v", planned[3])
 	}
 }
