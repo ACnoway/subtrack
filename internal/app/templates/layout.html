@@ -13,6 +13,8 @@
     {{if ne .Title "登录"}}
     <nav class="top-actions" aria-label="主导航">
       <a href="/subscriptions">资产</a>
+      <a href="/settings">提醒设置</a>
+      <a href="/notifications">通知记录</a>
       <form method="post" action="/logout">
         <input type="hidden" name="csrf_token" value="{{.CSRF}}">
         <button class="link-button" type="submit">退出登录</button>

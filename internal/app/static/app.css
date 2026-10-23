@@ -75,6 +75,7 @@ tbody tr:hover { background: #fcfdff; }
 .stack-form label, .form-grid label { display: grid; gap: 7px; color: #536178; font-size: 12px; font-weight: 600; }
 .alert { padding: 11px 13px; margin: 0 0 16px; border-radius: 8px; font-size: 13px; }
 .alert-error { border: 1px solid #f1d1cf; color: #a6423f; background: #fff3f2; }
+.alert-success { border: 1px solid #cfe8d7; color: #287348; background: #f0fbf4; }
 .form-heading { margin-bottom: 18px; }
 .back-link { display: inline-block; margin-bottom: 17px; color: #71809a; font-size: 12px; }
 .back-link:hover { color: var(--blue); }
@@ -88,6 +89,22 @@ tbody tr:hover { background: #fcfdff; }
 .checkbox-field small { color: #8692a5; font-size: 11px; font-weight: 400; }
 .form-footer { display: flex; justify-content: flex-end; gap: 9px; padding-top: 22px; margin-top: 24px; border-top: 1px solid var(--line); }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+.settings-card { padding: 26px; }
+.settings-section + .settings-section { padding-top: 23px; margin-top: 23px; border-top: 1px solid var(--line); }
+.settings-section h2, .action-card h2 { margin: 0 0 7px; color: #2b3850; font-size: 16px; }
+.settings-section > .muted, .action-card > .muted { margin: 0 0 16px; line-height: 1.6; }
+.form-grid small { color: #8692a5; font-size: 11px; font-weight: 400; line-height: 1.5; }
+.settings-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 16px; }
+.action-card { padding: 22px; }
+.action-card form { margin: 0; }
+.action-row { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; }
+.button-danger { color: #a6423f; border-color: #f1d1cf; background: #fff8f7; }
+.button-danger:hover { background: #fff0ef; }
+.log-result { display: inline-block; padding: 5px 8px; border-radius: 20px; font-size: 10px; font-weight: 600; color: #6e7788; background: #eef0f4; }
+.log-sent, .log-test_sent { color: #32835a; background: #e9f7ef; }
+.log-retrying { color: #a36914; background: #fff4df; }
+.log-failed, .log-test_failed { color: #b94040; background: #fff0ef; }
+.error-cell { max-width: 280px; white-space: normal; color: #a6423f; }
 
 @media (max-width: 720px) {
   .topbar { height: 60px; padding: 0 18px; }
@@ -101,6 +118,8 @@ tbody tr:hover { background: #fcfdff; }
   .form-card { padding: 18px; }
   .form-grid { grid-template-columns: 1fr; gap: 15px; }
   .span-2 { grid-column: auto; }
+  .settings-card { padding: 18px; }
+  .settings-actions { grid-template-columns: 1fr; }
 }
 
 @media (prefers-reduced-motion: reduce) {

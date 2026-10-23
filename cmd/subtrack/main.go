@@ -9,9 +9,11 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+	_ "time/tzdata"
 
 	"github.com/ACnoway/subtrack/internal/app"
 	"github.com/ACnoway/subtrack/internal/store"
+	"github.com/ACnoway/subtrack/internal/worker"
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
@@ -29,6 +31,14 @@ func main() {
 		os.Exit(1)
 	}
 	defer db.Close()
+	if len(os.Args) > 1 && os.Args[1] == "worker" {
+		logger.Info("SubTrack notification worker starting")
+		if err := worker.RunProcess(db, cfg, logger); err != nil {
+			logger.Error("notification worker stopped", "error", err)
+			os.Exit(1)
+		}
+		return
+	}
 
 	server := &http.Server{
 		Addr:              cfg.ListenAddress,

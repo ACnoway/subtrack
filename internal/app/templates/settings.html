@@ -1,0 +1,111 @@
+{{define "content"}}
+<section class="page-heading">
+  <div>
+    <div class="eyebrow">通知中心</div>
+    <h1>提醒设置</h1>
+    <p class="muted">设置通知渠道、时区和到期提醒时间。</p>
+  </div>
+</section>
+
+{{if .Error}}<div class="alert alert-error">{{.Error}}</div>{{end}}
+{{if .Success}}<div class="alert alert-success">{{.Success}}</div>{{end}}
+
+<form class="form-card settings-card" method="post" action="/settings">
+  <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+  <div class="settings-section">
+    <h2>发送时间</h2>
+    <p class="muted">Worker 按所选时区每天检查到期资产，并在设定时间发送提醒。</p>
+    <div class="form-grid">
+      <label>通知时区
+        <input name="timezone" value="{{.Settings.Timezone}}" required placeholder="Asia/Shanghai" autocomplete="off">
+        <small>填写 IANA 时区，例如 Asia/Shanghai、America/Los_Angeles。</small>
+      </label>
+      <label>每日发送时间
+        <input type="time" name="delivery_time" value="{{.Settings.DeliveryTime}}" required>
+      </label>
+    </div>
+  </div>
+
+  <div class="settings-section">
+    <h2>提醒规则</h2>
+    <p class="muted">输入相对到期日的天数，逗号分隔；负数表示到期后提醒，例如 -1 表示过期后一天。</p>
+    <div class="form-grid">
+      <label>常规资产
+        <input name="default_rules" value="{{.DefaultRules}}" placeholder="30, 14, 7, 3, 1, 0">
+      </label>
+      <label>重要资产额外提醒
+        <input name="important_rules" value="{{.ImportantRules}}" placeholder="60">
+        <small>域名、SSL 证书和优先级为高的资产会同时使用两组规则。</small>
+      </label>
+    </div>
+  </div>
+
+  <div class="settings-section">
+    <h2>Email</h2>
+    <div class="form-grid">
+      <label class="span-2">通知邮箱
+        <input type="email" name="email" value="{{.Settings.Email}}" placeholder="you@example.com" autocomplete="email">
+      </label>
+      <label class="checkbox-field span-2">
+        <input type="checkbox" name="email_enabled" {{if .Settings.EmailEnabled}}checked{{end}}>
+        <span><strong>启用 Email 提醒</strong><small>SMTP 配置：{{if .EmailConfigured}}已配置{{else}}未完整配置，请在 .env 中设置 SMTP_HOST、SMTP_PORT 和 SMTP_FROM{{end}}</small></span>
+      </label>
+    </div>
+  </div>
+
+  <div class="settings-section">
+    <h2>Telegram</h2>
+    {{if .Settings.TelegramChatID}}
+    <p class="muted">已绑定 Telegram 账号（Chat ID：{{.Settings.TelegramChatID}}）。</p>
+    {{else}}
+    <p class="muted">{{if .TelegramConfigured}}Bot Token 已配置，生成一次性链接后向机器人发送 /start 即可绑定。{{else}}请先在 .env 中设置 TELEGRAM_BOT_TOKEN，再重启应用和 Worker。{{end}}</p>
+    {{end}}
+    <div class="form-grid">
+      <label class="checkbox-field span-2">
+        <input type="checkbox" name="telegram_enabled" {{if .Settings.TelegramEnabled}}checked{{end}}>
+        <span><strong>启用 Telegram 提醒</strong><small>绑定后，Worker 会通过 Bot API 轮询完成绑定并发送通知。</small></span>
+      </label>
+    </div>
+  </div>
+
+  <div class="form-footer">
+    <button class="button button-primary" type="submit">保存提醒设置</button>
+  </div>
+</form>
+
+<div class="settings-actions">
+  <section class="form-card action-card">
+    <h2>测试 Email</h2>
+    <p class="muted">向上方填写的邮箱发送一封测试邮件，结果会写入通知记录。</p>
+    <form method="post" action="/settings/email/test">
+      <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+      <button class="button button-secondary" type="submit">发送测试邮件</button>
+    </form>
+  </section>
+  <section class="form-card action-card">
+    <h2>绑定与测试 Telegram</h2>
+    {{if .BindingURL}}
+    <p class="muted">请在 {{.BindingExpiresAt}} 前打开链接并向机器人发送 /start。</p>
+    <p><a class="button button-primary" href="{{.BindingURL}}" target="_blank" rel="noopener">打开 Telegram 绑定链接</a></p>
+    {{else}}
+    <p class="muted">链接有效期为 15 分钟，生成新链接会使之前的链接失效。</p>
+    {{end}}
+    <div class="action-row">
+      <form method="post" action="/settings/telegram/bind">
+        <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+        <button class="button button-secondary" type="submit">{{if .Settings.TelegramChatID}}重新绑定{{else}}生成绑定链接{{end}}</button>
+      </form>
+      <form method="post" action="/settings/telegram/test">
+        <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+        <button class="button button-secondary" type="submit">发送测试消息</button>
+      </form>
+      {{if .Settings.TelegramChatID}}
+      <form method="post" action="/settings/telegram/unbind" onsubmit="return confirm('解除 Telegram 绑定？')">
+        <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+        <button class="button button-danger" type="submit">解除绑定</button>
+      </form>
+      {{end}}
+    </div>
+  </section>
+</div>
+{{end}}

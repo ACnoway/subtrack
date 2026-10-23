@@ -258,11 +258,11 @@ func (s *Server) pageData(r *http.Request, title, message string) pageData {
 	return pageData{Title: title, CSRF: sessionFromContext(r.Context()).CSRF, Error: message, Categories: categories, Cycles: renewalCycles, Now: time.Now()}
 }
 
-func (s *Server) render(w http.ResponseWriter, page string, data pageData) {
+func (s *Server) render(w http.ResponseWriter, page string, data any) {
 	s.renderStatus(w, page, data, http.StatusOK)
 }
 
-func (s *Server) renderStatus(w http.ResponseWriter, page string, data pageData, status int) {
+func (s *Server) renderStatus(w http.ResponseWriter, page string, data any, status int) {
 	tmpl, err := template.ParseFS(assets, "templates/layout.html", "templates/"+page)
 	if err != nil {
 		s.serverError(w, nil, err)

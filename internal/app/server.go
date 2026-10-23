@@ -28,6 +28,7 @@ func NewServer(database *store.Store, cfg Config, logger *slog.Logger) *Server {
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", s.health)
+	mux.HandleFunc("GET /worker-healthz", s.workerHealth)
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.FS(staticFS()))))
 	mux.HandleFunc("GET /login", s.loginPage)
 	mux.HandleFunc("POST /login", s.login)
@@ -41,6 +42,14 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /subscriptions/{id}/archive", s.authenticated(http.HandlerFunc(s.archiveSubscription)))
 	mux.Handle("POST /subscriptions/{id}/restore", s.authenticated(http.HandlerFunc(s.restoreSubscription)))
 	mux.Handle("POST /subscriptions/{id}/delete", s.authenticated(http.HandlerFunc(s.deleteSubscription)))
+	mux.Handle("GET /settings", s.authenticated(http.HandlerFunc(s.notificationSettings)))
+	mux.Handle("POST /settings", s.authenticated(http.HandlerFunc(s.saveNotificationSettings)))
+	mux.Handle("POST /settings/email/test", s.authenticated(http.HandlerFunc(s.testEmailNotification)))
+	mux.Handle("POST /settings/telegram/bind", s.authenticated(http.HandlerFunc(s.createTelegramBinding)))
+	mux.Handle("POST /settings/telegram/unbind", s.authenticated(http.HandlerFunc(s.unbindTelegram)))
+	mux.Handle("POST /settings/telegram/test", s.authenticated(http.HandlerFunc(s.testTelegramNotification)))
+	mux.Handle("GET /notifications", s.authenticated(http.HandlerFunc(s.notificationHistory)))
+	mux.Handle("POST /notifications/{id}/retry", s.authenticated(http.HandlerFunc(s.retryNotification)))
 	return s.recoverPanics(s.logRequests(mux))
 }
 
@@ -74,6 +83,19 @@ func (s *Server) health(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 	if err := s.store.Ping(ctx); err != nil {
 		http.Error(w, "database unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte("ok\n"))
+}
+
+func (s *Server) workerHealth(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+	defer cancel()
+	seenAt, err := s.store.NotificationWorkerLastSeen(ctx)
+	if err != nil || time.Since(seenAt) > time.Minute {
+		http.Error(w, "notification worker unavailable", http.StatusServiceUnavailable)
 		return
 	}
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")

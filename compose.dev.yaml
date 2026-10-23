@@ -28,5 +28,15 @@ services:
     ports:
       - "${APP_PORT:-8080}:8080"
 
+  worker:
+    build: .
+    command: ["worker"]
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env
+
 volumes:
   subtrack_data:

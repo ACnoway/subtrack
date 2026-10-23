@@ -1,0 +1,51 @@
+{{define "content"}}
+<section class="page-heading">
+  <div>
+    <div class="eyebrow">通知中心</div>
+    <h1>通知记录</h1>
+    <p class="muted">显示最近 100 次提醒发送与测试结果。</p>
+  </div>
+  <a class="button button-secondary" href="/settings">提醒设置</a>
+</section>
+
+{{if .Error}}<div class="alert alert-error">{{.Error}}</div>{{end}}
+{{if .Success}}<div class="alert alert-success">{{.Success}}</div>{{end}}
+
+<section class="table-card" aria-label="通知发送历史">
+  {{if .Items}}
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>发送时间</th><th>资产</th><th>提醒阶段</th><th>渠道</th><th>结果</th><th>尝试次数</th><th>错误信息</th><th><span class="sr-only">操作</span></th></tr></thead>
+      <tbody>
+      {{range .Items}}
+      <tr>
+        <td><strong>{{.Attempted}}</strong>{{if ne .Scheduled .Attempted}}<span class="subline">计划 {{.Scheduled}}</span>{{end}}</td>
+        <td>{{.Item.SubscriptionName}}</td>
+        <td>{{if or (eq .Item.Result "test_sent") (eq .Item.Result "test_failed")}}测试通知{{else}}{{.OffsetLabel}}{{end}}</td>
+        <td><span class="category-pill">{{.ChannelLabel}}</span></td>
+        <td><span class="log-result log-{{.Item.Result}}">{{.ResultLabel}}</span></td>
+        <td>{{.Item.AttemptCount}}</td>
+        <td class="error-cell">{{if .Item.ErrorMessage}}{{.Item.ErrorMessage}}{{else}}—{{end}}</td>
+        <td class="row-actions">
+          {{if .Retryable}}
+          <form method="post" action="/notifications/{{.Item.JobID.Int64}}/retry">
+            <input type="hidden" name="csrf_token" value="{{$.CSRF}}">
+            <button class="small-action" type="submit">重新发送</button>
+          </form>
+          {{end}}
+        </td>
+      </tr>
+      {{end}}
+      </tbody>
+    </table>
+  </div>
+  {{else}}
+  <div class="empty-state">
+    <div class="empty-icon">○</div>
+    <h2>还没有通知记录</h2>
+    <p class="muted">发送测试通知或等待到期提醒后，记录会显示在这里。</p>
+    <a class="button button-primary" href="/settings">配置提醒</a>
+  </div>
+  {{end}}
+</section>
+{{end}}
