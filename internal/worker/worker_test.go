@@ -56,7 +56,7 @@ func TestPlanReminderJobsAddsImportantAndAfterExpiryRules(t *testing.T) {
 	if !dateAt(planned[2].scheduledAt, zone).Equal(today) || planned[2].scheduledAt.Hour() != 8 {
 		t.Fatalf("important 60-day reminder time = %s, want today at 08:00", planned[2].scheduledAt)
 	}
-	if planned[3].item.ID != postExpiry.ID || planned[3].offset != -1 || !planned[3].scheduledAt.Equal(today) {
+	if planned[3].item.ID != postExpiry.ID || planned[3].offset != -1 || !dateAt(planned[3].scheduledAt, zone).Equal(today) {
 		t.Fatalf("post-expiry reminder plan = %#v", planned[3])
 	}
 }
