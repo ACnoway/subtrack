@@ -4,6 +4,13 @@ on:
   push:
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to publish, for example v0.1.0
+        required: true
+        type: string
+        default: v0.1.0
 
 permissions:
   contents: read
@@ -20,12 +27,14 @@ jobs:
     env:
       DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
       DOCKERHUB_IMAGE: ${{ vars.DOCKERHUB_IMAGE }}
+      RELEASE_REF: ${{ inputs.tag || github.ref_name }}
     steps:
       - name: Validate release tag and configuration
+        id: release
         shell: bash
         run: |
           set -euo pipefail
-          if [[ ! "$GITHUB_REF_NAME" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+          if [[ ! "$RELEASE_REF" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
             echo "::error::Release tags must use vMAJOR.MINOR.PATCH without leading zeros."
             exit 1
           fi
@@ -33,10 +42,12 @@ jobs:
             echo "::error::Configure repository variables DOCKERHUB_USERNAME and DOCKERHUB_IMAGE (namespace/repository)."
             exit 1
           fi
+          echo "version=${RELEASE_REF#v}" >> "$GITHUB_OUTPUT"
 
       - name: Check out release
         uses: actions/checkout@v6
         with:
+          ref: ${{ env.RELEASE_REF }}
           persist-credentials: false
 
       - name: Set up Go
@@ -58,7 +69,7 @@ jobs:
         with:
           images: ${{ env.DOCKERHUB_IMAGE }}
           tags: |
-            type=semver,pattern={{version}}
+            type=raw,value=${{ steps.release.outputs.version }}
             type=raw,value=latest
           flavor: latest=false
 
